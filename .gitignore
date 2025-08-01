@@ -1,0 +1,18 @@
+﻿################################################################################
+# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
+################################################################################
+
+/.vs/Code/v17
+/Api/.vs/ProjectEvaluation
+/Api/MyDrReferral.Database/MyDrReferralDB/Import Schema Logs
+/Api/MyDrReferral.Database/MyDrReferralDB/obj/Debug
+/Api/MyDrReferral.Database/MyDrReferralDB/MyDrReferralDB.jfm
+/Api/MyDrReferral.Database/MyDrReferralDB/bin/Debug/
+*.dbmdl
+/.vs/Code Base/v17
+/.vs
+/Api/MyDrReferral.Api/appsettings.json
+/Api/AWSLambda1/obj
+/Api/MyDrReferral.Api/bin/Release/net6.0
+/Api/MyDrReferral.Data/bin/Release/net6.0
+/Api/MyDrReferral.Service/bin/Release/net6.0

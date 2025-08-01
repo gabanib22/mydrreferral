@@ -1,0 +1,26 @@
+﻿CREATE TABLE [dbo].[AspNetUsers] (
+    [Id]                   NVARCHAR (450)     NOT NULL,
+    [UserId]               INT                IDENTITY (1, 1) NOT NULL,
+    [UserName]             NVARCHAR (256)     NULL,
+    [NormalizedUserName]   NVARCHAR (256)     NULL,
+    [FirstName]            NVARCHAR (150)     NULL,
+    [LastName]             NVARCHAR (150)     NULL,
+    [Email]                NVARCHAR (256)     NULL,
+    [NormalizedEmail]      NVARCHAR (256)     NULL,
+    [EmailConfirmed]       BIT                NULL,
+    [PasswordHash]         NVARCHAR (MAX)     NULL,
+    [SecurityStamp]        NVARCHAR (MAX)     NULL,
+    [ConcurrencyStamp]     NVARCHAR (MAX)     NULL,
+    [PhoneNumber]          NVARCHAR (MAX)     NULL,
+    [PhoneNumberConfirmed] BIT                NULL,
+    [UserType]             INT                NULL,
+    [TwoFactorEnabled]     BIT                NULL,
+    [LockoutEnd]           DATETIMEOFFSET (7) NULL,
+    [LockoutEnabled]       BIT                NULL,
+    [AccessFailedCount]    INT                NULL,
+    [IsActive]             BIT                CONSTRAINT [DF_AspNetUsers_IsActive] DEFAULT ('TRUE') NULL,
+    [IsDelete]             BIT                CONSTRAINT [DF_AspNetUsers_IsDelete] DEFAULT ('FALSE') NULL,
+    [CreatedOn]            DATETIME           NULL,
+    CONSTRAINT [PK__AspNetUs__3214EC07E1128149] PRIMARY KEY CLUSTERED ([Id] ASC)
+);
+

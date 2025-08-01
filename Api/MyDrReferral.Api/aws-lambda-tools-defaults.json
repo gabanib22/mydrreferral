@@ -1,0 +1,21 @@
+
+{
+    "region" : "ap-south-1",
+    "profile" : "default",
+    "configuration" : "Release",
+    "framework"     : "net6.0",
+    "function-name" : "MyDrReferralFunction",
+    "function-description" : "my dr referral testing api lambda function",
+    "package-type"         : "Zip",
+    "function-handler"     : "MyDrReferral.Api",
+    "function-memory-size" : 256,
+    "function-role"        : "arn:aws:iam::142359869484:role/lambda_exec_MyDrReferralFunction",
+    "function-timeout"     : 10,
+    "function-runtime"     : "dotnet6",
+    "function-architecture" : "x86_64",
+    "function-subnets"      : "",
+    "function-security-groups" : "",
+    "tracing-mode"             : "PassThrough",
+    "environment-variables"    : "",
+    "image-tag"                : ""
+}
