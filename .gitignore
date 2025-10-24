@@ -1,18 +1,54 @@
-﻿################################################################################
-# This .gitignore file was automatically created by Microsoft(R) Visual Studio.
-################################################################################
+﻿# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-/.vs/Code/v17
-/Api/.vs/ProjectEvaluation
-/Api/MyDrReferral.Database/MyDrReferralDB/Import Schema Logs
-/Api/MyDrReferral.Database/MyDrReferralDB/obj/Debug
-/Api/MyDrReferral.Database/MyDrReferralDB/MyDrReferralDB.jfm
-/Api/MyDrReferral.Database/MyDrReferralDB/bin/Debug/
-*.dbmdl
-/.vs/Code Base/v17
-/.vs
-/Api/MyDrReferral.Api/appsettings.json
-/Api/AWSLambda1/obj
-/Api/MyDrReferral.Api/bin/Release/net6.0
-/Api/MyDrReferral.Data/bin/Release/net6.0
-/Api/MyDrReferral.Service/bin/Release/net6.0
+# Production builds
+.next/
+out/
+build/
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/terraform.tfvars
+**/.terraform/providers/
+
+# AWS
+.aws/
+
+# Database
+*.db
+*.sqlite
+**/*.dbmdl
+**/*.jfm
+**/bin/
+**/obj/
+
+# Temporary files
+*.tmp
+*.temp
