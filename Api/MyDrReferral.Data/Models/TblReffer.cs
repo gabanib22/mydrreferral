@@ -21,4 +21,10 @@ public partial class TblReffer
     public bool IsDeleted { get; set; }
 
     public int? Status { get; set; }
+
+    public DateTime? PatientVisitedDate { get; set; }
+
+    public DateTime? PaymentDate { get; set; }
+
+    public bool IsPaid { get; set; }
 }

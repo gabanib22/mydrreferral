@@ -16,6 +16,10 @@ public partial class TblPersonalDetail
 
     public string? Services { get; set; }
 
+    public string? Bio { get; set; }
+
+    public string? Experience { get; set; }
+
     public int? CreatedBy { get; set; }
 
     public bool IsActive { get; set; }

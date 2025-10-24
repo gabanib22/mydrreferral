@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+using AutoMapper;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -9,20 +9,21 @@ using MyDrReferral.Data.Models;
 using MyDrReferral.Service;
 using MyDrReferral.Service.Interface;
 using MyDrReferral.Service.Models;
+using System.Security.Claims;
 using System.Text.Json;
-
 
 namespace MyDrReferral.Api.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize] // Require authentication for all endpoints in this controller
     public class UserController : ControllerBase
     {
         private readonly IUserService _userService;
         private readonly IMapper _mapper;
         private readonly MyDrReferralContext _db;
-
         private readonly IMediator _mediator;
+
         public UserController(IUserService userService, IMapper mapper, IMediator mediator, MyDrReferralContext db)
         {
             _userService = userService;
@@ -31,7 +32,15 @@ namespace MyDrReferral.Api.Controllers
             _db = db;
         }
 
+        #region User Authentication
+
+        /// <summary>
+        /// Register a new user
+        /// </summary>
+        /// <param name="model">User registration data</param>
+        /// <returns>Registration result</returns>
         [HttpPost("register")]
+        [AllowAnonymous] // Allow anonymous access for registration
         public async Task<IActionResult> Register(UserRegistrationRequest model)
         {
             try
@@ -48,144 +57,146 @@ namespace MyDrReferral.Api.Controllers
                         UserType = model.UserType
                     };
 
-                    //var result = await _userService.AddEditUser(user, model.Password);
-
                     var result = await _mediator.Send(new RegistrationRequest { User = user, Password = model.Password });
 
                     if (result.Succeeded)
                     {
-                        return Ok(new ResponseModel { IsSuccess = true });
+                        return Ok(new ResponseModel
+                        {
+                            IsSuccess = true,
+                            Message = new List<string> { "User registered successfully" }
+                        });
                     }
                     else
                     {
-                        return BadRequest(new ResponseModel { IsSuccess = false, Message = result.Errors.Select(x => x.Description).ToList() });
+                        return BadRequest(new ResponseModel
+                        {
+                            IsSuccess = false,
+                            Message = result.Errors.Select(e => e.Description).ToList()
+                        });
                     }
                 }
                 else
                 {
-                    var res = new ResponseModel();
-                    res.IsSuccess = false;
-                    res.Message = ModelState.Values.SelectMany(v => v.Errors).Select(err => err.ErrorMessage).ToList();
-                    return BadRequest(res);
+                    return BadRequest(new ResponseModel
+                    {
+                        IsSuccess = false,
+                        Message = ModelState.Values.SelectMany(v => v.Errors).Select(err => err.ErrorMessage).ToList()
+                    });
                 }
             }
             catch (Exception ex)
             {
-                //await _errorLogService.AddErrorLog(new ErrorLogModel(ex)
                 await _mediator.Send(new ErrorRequest
                 {
                     ErrorLogModel = new ErrorLogModel(ex)
                     {
                         Subject = Common.GetErrorSubject(),
-                        Description = $"Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
+                        Description = $"Register ### Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
                     }
                 });
 
-                var responseModel = new ResponseModel();
-
-                responseModel.IsSuccess = false;
-                // Add a message to the Message list
-                responseModel.Message.Add(ex.Message);
-                return BadRequest(responseModel);
+                return BadRequest(new ResponseModel
+                {
+                    IsSuccess = false,
+                    Message = new List<string> { ex.Message }
+                });
             }
         }
 
-
-        #region User Login
+        /// <summary>
+        /// User login
+        /// </summary>
+        /// <param name="model">Login credentials</param>
+        /// <returns>Login result with JWT token</returns>
         [HttpPost("login")]
+        [AllowAnonymous] // Allow anonymous access for login
         public async Task<IActionResult> Login(UserLoginRequest model)
         {
             try
             {
-                //int x = 10;
-                //int y = 0;
-                //int result = x / y;
-
-                var logindata = _mapper.Map<LoginModel>(model);
-                //var token = await _userService.Login(logindata);
-                var token = await _mediator.Send(new LoginRequest { LoginModel = logindata });
-                if (token == null)
+                if (ModelState.IsValid)
                 {
-                    return Unauthorized(new ResponseModel
+                    var loginModel = _mapper.Map<LoginModel>(model);
+                    var token = await _mediator.Send(new LoginRequest { LoginModel = loginModel });
+
+                    if (!string.IsNullOrEmpty(token))
+                    {
+                        var response = new ResponseModel
+                        {
+                            IsSuccess = true,
+                            Message = new List<string> { "Login successful" },
+                            Data = new { Token = token }
+                        };
+                        Console.WriteLine($"Login successful - Token: {token.Substring(0, Math.Min(20, token.Length))}...");
+                        Console.WriteLine($"Response: {JsonSerializer.Serialize(response)}");
+                        return Ok(response);
+                    }
+                    else
+                    {
+                        return Unauthorized(new ResponseModel
+                        {
+                            IsSuccess = false,
+                            Message = new List<string> { "Invalid credentials" }
+                        });
+                    }
+                }
+                else
+                {
+                    return BadRequest(new ResponseModel
                     {
                         IsSuccess = false,
-                        Message = new List<string> { "Invalid Username or Password" }
+                        Message = ModelState.Values.SelectMany(v => v.Errors).Select(err => err.ErrorMessage).ToList()
                     });
                 }
-                return Ok(new { AccessToken = token });
             }
             catch (Exception ex)
             {
-                //await _errorLogService.AddErrorLog(new ErrorLogModel(ex)
-                //{
-                //    Description = $"Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
-                //});
-
                 await _mediator.Send(new ErrorRequest
                 {
                     ErrorLogModel = new ErrorLogModel(ex)
                     {
                         Subject = Common.GetErrorSubject(),
-                        Description = $"Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
+                        Description = $"Login ### Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
                     }
                 });
 
-
-
-                var responseModel = new ResponseModel
+                return BadRequest(new ResponseModel
                 {
                     IsSuccess = false,
-                };
-
-                // Add a message to the Message list
-                responseModel.Message.Add(ex.Message);
-                return BadRequest(responseModel);
+                    Message = new List<string> { ex.Message }
+                });
             }
         }
+
         #endregion
 
+        #region Password Management
 
-        #region Logout User
-
-        [HttpPost("logout")]
-        [Authorize]
-        public IActionResult Logout()
-        {
-            _userService.Logout();
-            return Ok();
-        }
-        #endregion
-
-
-        #region Change Password
         /// <summary>
-        /// Created By : Rutvik Tejani
-        /// Created On : 24-10-2023
-        /// Desc       : Used For Change Password of Valid User
+        /// Change user password
         /// </summary>
-        /// <returns></returns>        
-        [HttpPost("changepassword")]
-        [Authorize]
+        /// <param name="model">Password change data</param>
+        /// <returns>Password change result</returns>
+        [HttpPost("change-password")]
         public async Task<IActionResult> ChangePassword(UserChangePasswordRequest model)
         {
             try
             {
                 if (ModelState.IsValid)
                 {
-                    var data = _mapper.Map<ChangePassword>(model);
+                    var changePassword = _mapper.Map<ChangePassword>(model);
+                    var response = _mapper.Map<ResponseModel>(await _mediator.Send(new ChangePasswordRequest { ChangePassword = changePassword }));
 
-                    var response = _mapper.Map<ResponseModel>(await _mediator.Send(new ChangePasswordRequest { ChangePassword = data }));
-
-
-                    //response = _mapper.Map<ResponseModel>(response);
                     return Ok(response);
                 }
                 else
                 {
-                    var res = new ResponseModel();
-                    res.IsSuccess = false;
-                    res.Message = ModelState.Values.SelectMany(v => v.Errors).Select(err => err.ErrorMessage).ToList();
-                    return BadRequest(res);
+                    return BadRequest(new ResponseModel
+                    {
+                        IsSuccess = false,
+                        Message = ModelState.Values.SelectMany(v => v.Errors).Select(err => err.ErrorMessage).ToList()
+                    });
                 }
             }
             catch (Exception ex)
@@ -195,54 +206,44 @@ namespace MyDrReferral.Api.Controllers
                     ErrorLogModel = new ErrorLogModel(ex)
                     {
                         Subject = Common.GetErrorSubject(),
-                        Description = $"Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
+                        Description = $"ChangePassword ### Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
                     }
                 });
 
-                var responseModel = new ResponseModel();
-
-                responseModel.IsSuccess = false;
-                // Add a message to the Message list
-                responseModel.Message.Add(ex.Message);
-                return BadRequest(responseModel);
+                return BadRequest(new ResponseModel
+                {
+                    IsSuccess = false,
+                    Message = new List<string> { ex.Message }
+                });
             }
         }
-        #endregion
 
-
-        #region Reset Password
         /// <summary>
-        /// Created On : 31-10-2023
-        /// Created By : Rutvik Tejani
-        /// Desc       : Reset Password is Used for reset password to valid user with valid token and token
-        /// time is limited for 30minutes only
+        /// Reset user password
         /// </summary>
-        /// <param name="token">Comes from User's email</param>
-        /// <param name="email"></param>
-        /// <returns></returns>
-
-        [HttpPost("resetpassword")]
+        /// <param name="model">Password reset data</param>
+        /// <returns>Password reset result</returns>
+        [HttpPost("reset-password")]
+        [AllowAnonymous] // Allow anonymous access for reset password
         public async Task<IActionResult> ResetPassword(UserResetPasswordRequest model)
         {
             try
             {
-                if (!ModelState.IsValid)
+                if (ModelState.IsValid)
                 {
-                    var res = new ResponseModel();
-                    res.IsSuccess = false;
-                    res.Message = ModelState.Values.SelectMany(v => v.Errors).Select(err => err.ErrorMessage).ToList();
-                    return BadRequest(res);
+                    var resetPassword = _mapper.Map<ResetPassword>(model);
+                    var response = _mapper.Map<ResponseModel>(await _mediator.Send(new ResetPasswordRequest { ResetPassword = resetPassword }));
+
+                    return Ok(response);
                 }
-
-
-                var resetPwdData = _mapper.Map<ResetPassword>(model);
-
-                var response = _mapper.Map<ResponseModel>(await _mediator.Send(new ResetPasswordRequest { ResetPassword = resetPwdData }));
-
-                return Ok(response);
-
-
-
+                else
+                {
+                    return BadRequest(new ResponseModel
+                    {
+                        IsSuccess = false,
+                        Message = ModelState.Values.SelectMany(v => v.Errors).Select(err => err.ErrorMessage).ToList()
+                    });
+                }
             }
             catch (Exception ex)
             {
@@ -251,42 +252,325 @@ namespace MyDrReferral.Api.Controllers
                     ErrorLogModel = new ErrorLogModel(ex)
                     {
                         Subject = Common.GetErrorSubject(),
-                        Description = $"Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
+                        Description = $"ResetPassword ### Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
                     }
                 });
 
-                var responseModel = new ResponseModel();
-
-                responseModel.IsSuccess = false;
-                responseModel.Message.Add(ex.Message);
-                return BadRequest(responseModel);
+                return BadRequest(new ResponseModel
+                {
+                    IsSuccess = false,
+                    Message = new List<string> { ex.Message }
+                });
             }
         }
-        #endregion
 
-
-        #region Forgot Password          
-        [HttpPost("forgotpassword")]
+        /// <summary>
+        /// Forgot password - send reset email
+        /// </summary>
+        /// <param name="model">Forgot password data</param>
+        /// <returns>Forgot password result</returns>
+        [HttpPost("forgot-password")]
+        [AllowAnonymous] // Allow anonymous access for forgot password
         public async Task<IActionResult> ForgotPassword(UserForgotPasswordRequest model)
         {
             try
             {
+                if (ModelState.IsValid)
+                {
+                    var forgotPassword = _mapper.Map<ForgotPassword>(model);
+                    var callback = $"{Request.Scheme}://{Request.Host}/reset-password";
+                    var response = _mapper.Map<ResponseModel>(await _mediator.Send(new ForgotPasswordRequest { ForgotPassword = forgotPassword, CallbackUrl = callback }));
 
+                    return Ok(response);
+                }
+                else
+                {
+                    return BadRequest(new ResponseModel
+                    {
+                        IsSuccess = false,
+                        Message = ModelState.Values.SelectMany(v => v.Errors).Select(err => err.ErrorMessage).ToList()
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                await _mediator.Send(new ErrorRequest
+                {
+                    ErrorLogModel = new ErrorLogModel(ex)
+                    {
+                        Subject = Common.GetErrorSubject(),
+                        Description = $"ForgotPassword ### Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
+                    }
+                });
+
+                return BadRequest(new ResponseModel
+                {
+                    IsSuccess = false,
+                    Message = new List<string> { ex.Message }
+                });
+            }
+        }
+
+        #endregion
+
+        #region User Profile Management
+
+        /// <summary>
+        /// Get current user's profile information
+        /// </summary>
+        /// <returns>User profile data</returns>
+        [HttpGet("profile")]
+        public async Task<IActionResult> GetUserProfile()
+        {
+            try
+            {
+                // Debug: Log all claims
+                Console.WriteLine("=== JWT Claims Debug ===");
+                foreach (var claim in User.Claims)
+                {
+                    Console.WriteLine($"Claim Type: {claim.Type}, Value: {claim.Value}");
+                }
+                Console.WriteLine("=== End JWT Claims Debug ===");
+
+                // Get current user ID from JWT token - try multiple claim types
+                var currentUserId = User.FindFirst("nameid")?.Value ?? 
+                                  User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? 
+                                  User.FindFirst("userId")?.Value;
+                Console.WriteLine($"Current User ID from token: {currentUserId}");
+                
+                if (string.IsNullOrEmpty(currentUserId))
+                {
+                    Console.WriteLine("No user ID found in token");
+                    return Unauthorized(new ResponseModel
+                    {
+                        IsSuccess = false,
+                        Message = new List<string> { "User not authenticated" }
+                    });
+                }
+
+                // Get user from database with related data
+                Console.WriteLine($"Looking for user with ID: {currentUserId}");
+                var user = await _db.Users
+                    .Where(u => u.Id == currentUserId && u.IsActive == true && u.IsDelete == false)
+                    .FirstOrDefaultAsync();
+
+                if (user == null)
+                {
+                    Console.WriteLine("User not found in database");
+                    return NotFound(new ResponseModel
+                    {
+                        IsSuccess = false,
+                        Message = new List<string> { "User not found" }
+                    });
+                }
+
+                // Get personal details
+                var personalDetail = await _db.TblPersonalDetail
+                    .FirstOrDefaultAsync(p => p.UserId == user.UserId);
+
+                // Get address details
+                var addressDetail = await _db.TblAddress
+                    .FirstOrDefaultAsync(a => a.UserId == user.UserId);
+
+                // Create response model
+                var userProfile = new UserProfileResponseModel
+                {
+                    Id = user.Id,
+                    UserId = user.UserId,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    Email = user.Email ?? string.Empty,
+                    PhoneNumber = user.PhoneNumber ?? string.Empty,
+                    UserType = user.UserType,
+                    IsActive = user.IsActive,
+                    CreatedOn = user.CreatedOn,
+                    ReferralAmount = user.ReferralAmount,
+                    // Map from personal details
+                    PhotoUrl = personalDetail?.PhotoUrl,
+                    BirthDate = personalDetail?.BirthDate,
+                    Qualification = personalDetail?.Degrees,
+                    Specialization = personalDetail?.Services,
+                    Bio = personalDetail?.Bio,
+                    Experience = personalDetail?.Experience,
+                    // Map from address details
+                    ClinicName = addressDetail?.FirmName,
+                    ClinicAddress = addressDetail?.Address1,
+                    Address2 = addressDetail?.Address2,
+                    City = addressDetail?.City,
+                    State = addressDetail?.State,
+                    Pincode = addressDetail?.PostalCode
+                };
+
+                Console.WriteLine($"User found: {user != null}");
+                if (user != null)
+                {
+                    Console.WriteLine($"User details: {user.FirstName} {user.LastName} ({user.Email})");
+                }
+
+                return Ok(new ResponseModel
+                {
+                    IsSuccess = true,
+                    Data = userProfile,
+                    Message = new List<string> { "User profile retrieved successfully" }
+                });
+            }
+            catch (Exception ex)
+            {
+                await _mediator.Send(new ErrorRequest
+                {
+                    ErrorLogModel = new ErrorLogModel(ex)
+                    {
+                        Subject = Common.GetErrorSubject(),
+                        Description = $"GetUserProfile ### Exception ### {ex.Message}",
+                    }
+                });
+
+                return BadRequest(new ResponseModel
+                {
+                    IsSuccess = false,
+                    Message = new List<string> { ex.Message }
+                });
+            }
+        }
+
+        /// <summary>
+        /// Update current user's profile information
+        /// </summary>
+        /// <param name="model">User profile data</param>
+        /// <returns>Updated user profile</returns>
+        [HttpPut("profile")]
+        public async Task<IActionResult> UpdateUserProfile(UserProfileRequestModel model)
+        {
+            try
+            {
                 if (!ModelState.IsValid)
                 {
-                    var res = new ResponseModel();
-                    res.IsSuccess = false;
-                    res.Message = ModelState.Values.SelectMany(v => v.Errors).Select(err => err.ErrorMessage).ToList();
-                    return BadRequest(res);
+                    return BadRequest(new ResponseModel
+                    {
+                        IsSuccess = false,
+                        Message = ModelState.Values.SelectMany(v => v.Errors).Select(err => err.ErrorMessage).ToList()
+                    });
                 }
 
-                var forgotPwdData = _mapper.Map<ForgotPassword>(model);
-                var Token = "TOKEN";
-                var callback = Url.Action(nameof(ResetPassword), "User", new { Token, email = model.Email }, Request.Scheme);
-                var response = _mapper.Map<ResponseModel>(await _mediator.Send(new ForgotPasswordRequest { ForgotPassword = forgotPwdData, CallbackUrl = callback }));
+                // Get current user ID from JWT token
+                var currentUserId = User.FindFirst("nameid")?.Value ??
+                                  User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
+                                  User.FindFirst("userId")?.Value;
+                if (string.IsNullOrEmpty(currentUserId))
+                {
+                    return Unauthorized(new ResponseModel
+                    {
+                        IsSuccess = false,
+                        Message = new List<string> { "User not authenticated" }
+                    });
+                }
 
-                return Ok(response);
+                // Get user from database
+                var user = await _db.Users
+                    .Where(u => u.Id == currentUserId && u.IsActive == true && u.IsDelete == false)
+                    .FirstOrDefaultAsync();
 
+                if (user == null)
+                {
+                    return NotFound(new ResponseModel
+                    {
+                        IsSuccess = false,
+                        Message = new List<string> { "User not found" }
+                    });
+                }
+
+                // Update user properties
+                user.FirstName = model.FirstName;
+                user.LastName = model.LastName;
+                user.Email = model.Email;
+                user.UserName = model.Email; // Update username to match email
+                user.PhoneNumber = model.PhoneNumber;
+                user.UserType = model.UserType;
+                user.ReferralAmount = model.ReferralAmount;
+
+                // Update or create personal details
+                var personalDetail = await _db.TblPersonalDetail
+                    .FirstOrDefaultAsync(p => p.UserId == user.UserId);
+
+                if (personalDetail == null)
+                {
+                    personalDetail = new TblPersonalDetail
+                    {
+                        UserId = user.UserId,
+                        IsActive = true,
+                        IsDelete = false,
+                        CreatedBy = user.UserId
+                    };
+                    _db.TblPersonalDetail.Add(personalDetail);
+                }
+
+                personalDetail.PhotoUrl = model.PhotoUrl;
+                personalDetail.BirthDate = model.BirthDate;
+                personalDetail.Degrees = model.Qualification; // Map qualification to degrees
+                personalDetail.Services = model.Specialization; // Map specialization to services
+                personalDetail.Bio = model.Bio;
+                personalDetail.Experience = model.Experience;
+
+                // Update or create address details
+                var addressDetail = await _db.TblAddress
+                    .FirstOrDefaultAsync(a => a.UserId == user.UserId);
+
+                if (addressDetail == null)
+                {
+                    addressDetail = new TblAddress
+                    {
+                        UserId = user.UserId,
+                        IsActive = true,
+                        IsDelete = false
+                    };
+                    _db.TblAddress.Add(addressDetail);
+                }
+
+                addressDetail.FirmName = model.ClinicName; // Map clinic name to firm name
+                addressDetail.Address1 = model.ClinicAddress; // Map clinic address to address1
+                addressDetail.Address2 = model.Address2;
+                addressDetail.City = model.City;
+                addressDetail.State = model.State;
+                addressDetail.PostalCode = model.Pincode; // Map pincode to postal code
+
+                // Save changes
+                await _db.SaveChangesAsync();
+
+                // Return updated user profile
+                var updatedUser = new UserProfileResponseModel
+                {
+                    Id = user.Id,
+                    UserId = user.UserId,
+                    FirstName = user.FirstName,
+                    LastName = user.LastName,
+                    Email = user.Email ?? string.Empty,
+                    PhoneNumber = user.PhoneNumber ?? string.Empty,
+                    UserType = user.UserType,
+                    IsActive = user.IsActive,
+                    CreatedOn = user.CreatedOn,
+                    ReferralAmount = user.ReferralAmount,
+                    // Map from personal details
+                    PhotoUrl = personalDetail?.PhotoUrl,
+                    BirthDate = personalDetail?.BirthDate,
+                    Qualification = personalDetail?.Degrees,
+                    Specialization = personalDetail?.Services,
+                    Bio = personalDetail?.Bio,
+                    Experience = personalDetail?.Experience,
+                    // Map from address details
+                    ClinicName = addressDetail?.FirmName,
+                    ClinicAddress = addressDetail?.Address1,
+                    Address2 = addressDetail?.Address2,
+                    City = addressDetail?.City,
+                    State = addressDetail?.State,
+                    Pincode = addressDetail?.PostalCode
+                };
+
+                return Ok(new ResponseModel
+                {
+                    IsSuccess = true,
+                    Data = updatedUser,
+                    Message = new List<string> { "User profile updated successfully" }
+                });
             }
             catch (Exception ex)
             {
@@ -295,376 +579,18 @@ namespace MyDrReferral.Api.Controllers
                     ErrorLogModel = new ErrorLogModel(ex)
                     {
                         Subject = Common.GetErrorSubject(),
-                        Description = $"Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
+                        Description = $"UpdateUserProfile ### Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
                     }
                 });
 
-                var responseModel = new ResponseModel();
-
-                responseModel.IsSuccess = false;
-                responseModel.Message.Add(ex.Message);
-                return BadRequest(responseModel);
-
+                return BadRequest(new ResponseModel
+                {
+                    IsSuccess = false,
+                    Message = new List<string> { ex.Message }
+                });
             }
         }
+
         #endregion
-
-
-        #region User CRUD
-        //[Authorize]
-        [HttpPost("bulkusers")]
-        public async Task<IActionResult> BulkUsersData(List<BulkUserDataRequestModel> model)
-        {
-            try
-            {
-                if (ModelState.IsValid)
-                {
-                    var data = _mapper.Map<List<BulkUserData>>(model);
-
-                    var response = _mapper.Map<ResponseModel>(await _mediator.Send(new BulkUserDataRequest { BulkUserData = data }));
-
-                    return Ok(response);
-                }
-                else
-                {
-                    var res = new ResponseModel();
-                    res.IsSuccess = false;
-                    res.Message = ModelState.Values.SelectMany(v => v.Errors).Select(err => err.ErrorMessage).ToList();
-                    return BadRequest(res);
-                }
-            }
-            catch (Exception ex)
-            {
-                await _mediator.Send(new ErrorRequest
-                {
-                    ErrorLogModel = new ErrorLogModel(ex)
-                    {
-                        Subject = Common.GetErrorSubject(),
-                        Description = $"Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
-                    }
-                });
-
-                var responseModel = new ResponseModel();
-
-                responseModel.IsSuccess = false;
-                responseModel.Message.Add(ex.Message);
-                return BadRequest(responseModel);
-            }
-
-        }
-
-
-        [HttpPost("singleuser")]
-        public async Task<IActionResult> SingleUsersData(SingleUserDataRequestModel model)
-        {
-            try
-            {
-                if (ModelState.IsValid)
-                {
-                    var data = _mapper.Map<SingleUserData>(model);
-
-                    var response = _mapper.Map<ResponseModel>(await _mediator.Send(new SingleUserDataRequest { SingleUserData = data }));
-
-                    return Ok(response);
-                }
-                else
-                {
-                    var res = new ResponseModel();
-                    res.IsSuccess = false;
-                    res.Message = ModelState.Values.SelectMany(v => v.Errors).Select(err => err.ErrorMessage).ToList();
-                    return BadRequest(res);
-                }
-            }
-            catch (Exception ex)
-            {
-                await _mediator.Send(new ErrorRequest
-                {
-                    ErrorLogModel = new ErrorLogModel(ex)
-                    {
-                        Subject = Common.GetErrorSubject(),
-                        Description = $"Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
-                    }
-                });
-
-                var responseModel = new ResponseModel();
-
-                responseModel.IsSuccess = false;
-                responseModel.Message.Add(ex.Message);
-                return BadRequest(responseModel);
-            }
-
-        }
-
-
-        [HttpPut("updateuser")]
-        public async Task<IActionResult> UpdateUser(UpdateUserRequestModel model)
-        {
-            try
-            {
-                if (ModelState.IsValid)
-                {
-                    var data = _mapper.Map<UpdateUserData>(model);
-
-                    var response = _mapper.Map<ResponseModel>(await _mediator.Send(new UpdateUserDataRequest { UpdateUserData = data }));
-
-                    return Ok(response);
-                }
-                else
-                {
-                    var res = new ResponseModel();
-                    res.IsSuccess = false;
-                    res.Message = ModelState.Values.SelectMany(v => v.Errors).Select(err => err.ErrorMessage).ToList();
-                    return BadRequest(res);
-                }
-            }
-            catch (Exception ex)
-            {
-                await _mediator.Send(new ErrorRequest
-                {
-                    ErrorLogModel = new ErrorLogModel(ex)
-                    {
-                        Subject = Common.GetErrorSubject(),
-                        Description = $"Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
-                    }
-                });
-
-                var responseModel = new ResponseModel();
-
-                responseModel.IsSuccess = false;
-                responseModel.Message.Add(ex.Message);
-                return BadRequest(responseModel);
-            }
-
-        }
-
-        [HttpGet("getUserByID/{userId}")]
-        public async Task<IActionResult> getUserByID(int userId, CancellationToken cancellationToken)
-        {
-            try
-            {
-                var response = await _db.TblPersonalDetail
-                    .Where(x => x.IsActive == true && x.IsDelete == false && x.UserId == userId)
-                    .Select(x => new GetUserDataResponseModel
-                    {
-                        UserId = x.UserId,
-                        Anniversary = x.Anniversary,
-                        BirthDate = x.BirthDate,
-                        Degrees = x.Degrees,
-                        Services = x.Services,
-                        PhotoUrl = x.PhotoUrl
-                    })
-                    .FirstOrDefaultAsync(cancellationToken);
-                if (response != null)
-                {
-                    return Ok(response);
-                }
-                else
-                {
-                    var res = new ResponseModel();
-                    res.IsSuccess = false;
-                    res.Message = new List<string> { "User not found! " };
-                    return BadRequest(res);
-                }
-
-            }
-            catch (Exception ex)
-            {
-                await _mediator.Send(new ErrorRequest
-                {
-                    ErrorLogModel = new ErrorLogModel(ex)
-                    {
-                        Subject = Common.GetErrorSubject(),
-                        Description = $"Data :: {JsonSerializer.Serialize(userId)} ### Exception ### {ex.Message}",
-                    }
-                });
-
-                var responseModel = new ResponseModel();
-
-                responseModel.IsSuccess = false;
-                responseModel.Message.Add(ex.Message);
-                return BadRequest(responseModel);
-            }
-
-        }
-
-        [HttpGet("getUserListByCreatedUser/{userId}")]
-        // For agents
-        public async Task<IActionResult> getUserListByCreatedUser(int userId, CancellationToken cancellationToken)
-        {
-            try
-            {
-                var response = await _db.TblPersonalDetail
-                    .Where(x => x.IsActive == true && x.IsDelete == false && (x.CreatedBy == userId))
-                    .Select(x => new GetUserDataListByCreatedUserResponseModel
-                    {
-                        UserId = x.UserId,
-                        Anniversary = x.Anniversary,
-                        BirthDate = x.BirthDate,
-                        Degrees = x.Degrees,
-                        Services = x.Services,
-                        PhotoUrl = x.PhotoUrl
-                    })
-                    .ToListAsync(cancellationToken);
-                if (response != null)
-                {
-                    return Ok(response);
-                }
-                else
-                {
-                    var res = new ResponseModel();
-                    res.IsSuccess = false;
-                    res.Message = new List<string> { "User not found! " };
-                    return BadRequest(res);
-                }
-
-            }
-            catch (Exception ex)
-            {
-                await _mediator.Send(new ErrorRequest
-                {
-                    ErrorLogModel = new ErrorLogModel(ex)
-                    {
-                        Subject = Common.GetErrorSubject(),
-                        Description = $"Data :: {JsonSerializer.Serialize(userId)} ### Exception ### {ex.Message}",
-                    }
-                });
-
-                var responseModel = new ResponseModel();
-
-                responseModel.IsSuccess = false;
-                responseModel.Message.Add(ex.Message);
-                return BadRequest(responseModel);
-            }
-
-        }
-
-        [HttpGet("getUserListForAdmin/{userId}")]
-        public async Task<IActionResult> getUserListForAdmin(CancellationToken cancellationToken)
-        {
-            try
-            {
-                var response = await _db.TblPersonalDetail
-                    .Where(x => x.IsActive == true && x.IsDelete == false)
-                    .Select(x => new GetUserDataListForAdminResponseModel
-                    {
-                        UserId = x.UserId,
-                        Anniversary = x.Anniversary,
-                        BirthDate = x.BirthDate,
-                        Degrees = x.Degrees,
-                        Services = x.Services,
-                        PhotoUrl = x.PhotoUrl
-                    })
-                    .ToListAsync(cancellationToken);
-                if (response != null)
-                {
-                    return Ok(response);
-                }
-                else
-                {
-                    var res = new ResponseModel();
-                    res.IsSuccess = false;
-                    res.Message = new List<string> { "User not found! " };
-                    return BadRequest(res);
-                }
-
-            }
-            catch (Exception ex)
-            {
-                await _mediator.Send(new ErrorRequest
-                {
-                    ErrorLogModel = new ErrorLogModel(ex)
-                    {
-                        Subject = Common.GetErrorSubject(),
-                        Description = $"Data :: Admin ### Exception ### {ex.Message}",
-                    }
-                });
-
-                var responseModel = new ResponseModel();
-
-                responseModel.IsSuccess = false;
-                responseModel.Message.Add(ex.Message);
-                return BadRequest(responseModel);
-            }
-
-        }
-
-        [HttpDelete("deleteUserById/{userId}")]
-        public async Task<IActionResult> deleteUserById(int userId, CancellationToken cancellationToken)
-        {
-            try
-            {
-                var res = new ResponseModel();
-                res.IsSuccess = false;
-                var personalDetail = _db.TblPersonalDetail
-                    .Where(x => x.UserId == userId && x.IsActive == true && x.IsDelete == false)
-                    .FirstOrDefault();
-
-                if (personalDetail != null)
-                {
-                    personalDetail.IsActive = false;
-                    personalDetail.IsDelete = true;
-                    await _db.SaveChangesAsync(cancellationToken);
-                    res.IsSuccess = true;
-                    res.Message = new List<string> { "Successfully deleted User!" };
-                    return Ok(res);
-                }
-                else
-                {
-                    res.Message = new List<string> { "User not found for deletion! " };
-                    return BadRequest(res);
-                }
-
-            }
-            catch (Exception ex)
-            {
-                await _mediator.Send(new ErrorRequest
-                {
-                    ErrorLogModel = new ErrorLogModel(ex)
-                    {
-                        Subject = Common.GetErrorSubject(),
-                        Description = $"Data :: {JsonSerializer.Serialize(userId)} ### Exception ### {ex.Message}",
-                    }
-                });
-
-                var responseModel = new ResponseModel();
-
-                responseModel.IsSuccess = false;
-                responseModel.Message.Add(ex.Message);
-                return BadRequest(responseModel);
-            }
-
-        }
-        #endregion
-
-        #region FilterDoctor Data By Text
-
-        [HttpGet("filterDoctorDataByText/{searchText}")]
-        public async Task<IActionResult> FilterDoctorDataByText(string searchText, CancellationToken cancellationToken)
-        {
-            try
-            {                
-                return Ok(await _mediator.Send(new FilterDoctorDataRequest() { SearchText = searchText }));
-            }
-            catch (Exception ex)
-            {
-                await _mediator.Send(new ErrorRequest
-                {
-                    ErrorLogModel = new ErrorLogModel(ex)
-                    {
-                        Subject = Common.GetErrorSubject(),
-                        Description = $"Data :: {JsonSerializer.Serialize(searchText)} ### Exception ### {ex.Message}",
-                    }
-                });
-
-                var responseModel = new ResponseModel();
-
-                responseModel.IsSuccess = false;
-                responseModel.Message.Add(ex.Message);
-                return BadRequest(responseModel);
-            }
-
-        }
-        #endregion
-
     }
 }

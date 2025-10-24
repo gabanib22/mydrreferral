@@ -10,6 +10,14 @@
   --dark-blue: #0D43AA;
   --border-blue: #1677ff;
   --dark-color: #2b2b2b;
+  --primary-blue: #3b82f6;
+  --primary-blue-dark: #2563eb;
+  --primary-blue-light: #dbeafe;
+  --secondary-gray: #6b7280;
+  --background-gray: #f9fafb;
+  --border-gray: #e5e7eb;
+  --text-gray: #374151;
+  --text-gray-light: #6b7280;
 }
 
 * {

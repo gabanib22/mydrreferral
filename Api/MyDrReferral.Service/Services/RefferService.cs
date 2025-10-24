@@ -48,7 +48,7 @@ namespace MyDrReferral.Service.Services
 
                 var refferData = new TblReffer()
                 {
-                    ConnectioionId=reffer.ConnectioionId,
+                    ConnectioionId=reffer.ConnectionId,
                     PatientId=patientData.Id,
                     Notes=reffer.Notes,
                     RflAmount=reffer.RflAmount,

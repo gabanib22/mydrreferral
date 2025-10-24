@@ -1,8 +1,8 @@
 
 /.vs/MyDrReferral.Api
-/MyDrReferral.Api/bin/Debug/net6.0
+/MyDrReferral.Api/bin/Debug/net8.0
 /MyDrReferral.Api/obj
-/MyDrReferral.Data/bin/Debug/net6.0
+/MyDrReferral.Data/bin/Debug/net8.0
 /MyDrReferral.Data/obj
 /MyDrReferral.Service/obj
-/MyDrReferral.Service/bin/Debug/net6.0
+/MyDrReferral.Service/bin/Debug/net8.0

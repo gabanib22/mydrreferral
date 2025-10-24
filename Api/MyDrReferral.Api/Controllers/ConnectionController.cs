@@ -11,6 +11,7 @@ using MyDrReferral.Service.Interface;
 using MyDrReferral.Service.Models;
 using MyDrReferral.Service.Services;
 using System.Data;
+using System.Security.Claims;
 using System.Text.Json;
 using System.Threading;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory.Database;
@@ -19,6 +20,7 @@ namespace MyDrReferral.Api.Controllers;
 
 [Route("api/[controller]")]
 [ApiController]
+[Authorize] // Require authentication for all endpoints in this controller
 public class ConnectionController : Controller
 {
     private readonly IUserService _userService;
@@ -38,20 +40,76 @@ public class ConnectionController : Controller
 
 
     #region Connection
-    [Authorize]
-    [HttpPost("connectionRequest")]
-    public async Task<IActionResult> ConnectionRequest(ConnectionModel connection)
+
+    [HttpPost("test")]
+    public IActionResult Test()
     {
+        Console.WriteLine("=== TEST ENDPOINT HIT ===");
+        return Ok("Test endpoint working");
+    }
+
+    [Authorize]
+    [HttpPost("connection-request")]
+    public async Task<IActionResult> ConnectionRequest([FromBody] ConnectionModel connection)
+    {
+        Console.WriteLine("=== CONNECTION REQUEST ENDPOINT HIT ===");
+        Console.WriteLine($"ModelState.IsValid: {ModelState.IsValid}");
+        Console.WriteLine($"ModelState errors: {string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage))}");
+
         var responseModel = new ResponseModel();
         try
         {
+            Console.WriteLine($"Received connection request: ReceiverId={connection?.ReceiverId}, Notes={connection?.Notes}");
+
+            if (connection == null)
+            {
+                Console.WriteLine("Connection model is null");
+                responseModel.Message.Add("Invalid request data");
+                return BadRequest(responseModel);
+            }
+
+            if (!ModelState.IsValid)
+            {
+                Console.WriteLine("Model validation failed");
+                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
+                responseModel.Message.AddRange(errors);
+                return BadRequest(responseModel);
+            }
+
             if (connection.ReceiverId <= 0)
             {
+                Console.WriteLine("Invalid Receiver ID");
                 responseModel.Message.Add("Invalid Receiver");
                 return BadRequest(responseModel);
             }
+
+            // Get current user ID from JWT token
+            var currentUserId = User.FindFirst("nameid")?.Value ??
+                              User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
+                              User.FindFirst("userId")?.Value;
+
+            var currentUserIdInt = await _db.Users.Where(x => x.Id == currentUserId)
+                .Select(x => x.UserId.ToString())
+                .FirstOrDefaultAsync();
+
+            Console.WriteLine($"Current user ID from token: {currentUserIdInt}");
+
+            if (string.IsNullOrEmpty(currentUserIdInt))
+            {
+                Console.WriteLine("User not authenticated - no user ID found");
+                responseModel.Message.Add("User not authenticated");
+                return Unauthorized(responseModel);
+            }
+
+            // Set the sender ID to current user
+            connection.SenderId = int.Parse(currentUserIdInt);
+            connection.CreatedBy = int.Parse(currentUserIdInt);
+            connection.CreatedDate = DateTime.UtcNow;
+            connection.IsAccepted = false;
+            connection.IsRejected = false;
+            connection.IsDeleted = false;
+
             var model = _mapper.Map<Service.Models.Connection>(connection);
-            //responseModel = _mapper.Map<ResponseModel>(await _mediator.Send(new ConnectionRequest { receiverId = receiverId }));
             responseModel = _mapper.Map<ResponseModel>(await _mediator.Send(new ConnectionRequest { Connection = model }));
             return Ok(responseModel);
         }
@@ -86,28 +144,33 @@ public class ConnectionController : Controller
         {
             var currentUser = await _userService.GetCurrentUser();
 
-            var connections =await (from user in _db.Users
-                               //join connection in _db.TblConnections on user.UserId equals connection.SenderId
-                               join connection in _db.TblConnections on user.UserId equals connection.ReceiverId
-                               where connection.IsRejected == isBlocked && connection.SenderId == currentUser.UserId
-                               select new
-                               {
-                                   Mobile = user.PhoneNumber,
-                                   user.Email,
-                                   DoctorName = string.Concat(user.FirstName, " ", user.LastName),
-                                   //TotalEarning = _db.TblReffer.Where(x => x.ConnectioionId == connection.Id && x.Status == (int)Common.ConnectionStatusType.Completed)
-                                   //                 .SumAsync(x => x.RflAmount, cancellationToken),
-                                   //TotalPendings = _db.TblReffer.Where(x => x.ConnectioionId == connection.Id && x.Status == (int)Common.ConnectionStatusType.PendingPayment)
-                                   //                 .SumAsync(x => x.RflAmount, cancellationToken),
-                                   TotalEarning=0,
-                                   TotalPendings=0,
-                                   //25-02-2024 Added By Rutvik Tejani
-                                   ConnectioionId=connection.Id,
-                                   Status= (connection.IsRejected==false && connection.IsAccepted==false?"Pending": (connection.IsAccepted ==true?"Approve":"Blocked")),
-                                   RequestDate=connection.CreatedDate
-                               }).ToListAsync(cancellationToken);
+            var connections = await (from user in _db.Users
+                                         //join connection in _db.TblConnections on user.UserId equals connection.SenderId
+                                     join connection in _db.TblConnections on user.UserId equals connection.ReceiverId
+                                     where connection.IsRejected == isBlocked && connection.SenderId == currentUser.UserId
+                                     && connection.IsAccepted == true
+                                     select new
+                                     {
+                                         mobile = user.PhoneNumber,
+                                         email = user.Email,
+                                         doctor_name = string.Concat(user.FirstName, " ", user.LastName),
+                                         //TotalEarning = _db.TblReffer.Where(x => x.ConnectioionId == connection.Id && x.Status == (int)Common.ConnectionStatusType.Completed)
+                                         //                 .SumAsync(x => x.RflAmount, cancellationToken),
+                                         //TotalPendings = _db.TblReffer.Where(x => x.ConnectioionId == connection.Id && x.Status == (int)Common.ConnectionStatusType.PendingPayment)
+                                         //                 .SumAsync(x => x.RflAmount, cancellationToken),
+                                         total_earning = 0,
+                                         total_pendings = 0,
+                                         referral_amount = user.ReferralAmount ?? 0,
+                                         //25-02-2024 Added By Rutvik Tejani
+                                         Id = connection.Id,
+                                         Status = (connection.IsRejected == false && connection.IsAccepted == false ? "Pending" : (connection.IsAccepted == true ? "Approve" : "Blocked")),
+                                         RequestDate = connection.CreatedDate
+                                     }).ToListAsync(cancellationToken);
 
-            return Ok(connections);
+            responseModel.IsSuccess = true;
+            responseModel.Data = connections;
+            responseModel.Message.Add("Connections retrieved successfully");
+            return Ok(responseModel);
         }
         catch (Exception ex)
         {
@@ -146,22 +209,26 @@ public class ConnectionController : Controller
                                      where connection.SenderId == currentUser.UserId
                                      select new
                                      {
-                                         Mobile = user.PhoneNumber,
-                                         user.Email,
-                                         DoctorName = string.Concat(user.FirstName, " ", user.LastName),
+                                         mobile = user.PhoneNumber,
+                                         email = user.Email,
+                                         doctor_name = string.Concat(user.FirstName, " ", user.LastName),
                                          //TotalEarning = _db.TblReffer.Where(x => x.ConnectioionId == connection.Id && x.Status == (int)Common.ConnectionStatusType.Completed)
                                          //                 .SumAsync(x => x.RflAmount, cancellationToken),
                                          //TotalPendings = _db.TblReffer.Where(x => x.ConnectioionId == connection.Id && x.Status == (int)Common.ConnectionStatusType.PendingPayment)
                                          //                 .SumAsync(x => x.RflAmount, cancellationToken),
-                                         TotalEarning = 0,
-                                         TotalPendings = 0,
+                                         total_earning = 0,
+                                         total_pendings = 0,
+                                         referral_amount = user.ReferralAmount ?? 0,
                                          //25-02-2024 Added By Rutvik Tejani
-                                         ConnectioionId = connection.Id,
+                                         Id = connection.Id,
                                          Status = (connection.IsRejected == false && connection.IsAccepted == false ? "Pending" : (connection.IsAccepted == true ? "Approve" : "Blocked")),
                                          RequestDate = connection.CreatedDate
                                      }).ToListAsync(cancellationToken);
 
-            return Ok(connections);
+            responseModel.IsSuccess = true;
+            responseModel.Data = connections;
+            responseModel.Message.Add("Connections retrieved successfully");
+            return Ok(responseModel);
         }
         catch (Exception ex)
         {
@@ -189,27 +256,30 @@ public class ConnectionController : Controller
     [HttpGet("getConnectionRequests")]
     public async Task<IActionResult> GetConnectionRequests(bool isBlocked, CancellationToken cancellationToken)
     {
-        var responseModel = new ResponseModel();    
+        var responseModel = new ResponseModel();
         try
         {
             var currentUser = await _userService.GetCurrentUser();
 
             var connections = await (from user in _db.Users
-                               //join connection in _db.TblConnections on user.UserId equals connection.ReceiverId
-                               join connection in _db.TblConnections on user.UserId equals connection.SenderId
-                               where connection.IsRejected == isBlocked && connection.ReceiverId == currentUser.UserId
-                               select new
-                               {
-                                   Mobile = user.PhoneNumber,
-                                   user.Email,
-                                   DoctorName = string.Concat(user.FirstName, " ", user.LastName),
-                                   ConnectioionId = connection.Id,
-                                   Status = (connection.IsRejected == false && connection.IsAccepted == false ? "Pending" : (connection.IsAccepted == true ? "Approve" : "Blocked")),
-                                   RequestDate = connection.CreatedDate,
-                                   LastUpdateDate=connection.LastUpdateDate
-                               }).ToListAsync(cancellationToken);
+                                         //join connection in _db.TblConnections on user.UserId equals connection.ReceiverId
+                                     join connection in _db.TblConnections on user.UserId equals connection.SenderId
+                                     where connection.IsRejected == isBlocked && connection.ReceiverId == currentUser.UserId
+                                     select new
+                                     {
+                                         mobile = user.PhoneNumber,
+                                         email = user.Email,
+                                         doctor_name = string.Concat(user.FirstName, " ", user.LastName),
+                                         Id = connection.Id,
+                                         Status = (connection.IsRejected == false && connection.IsAccepted == false ? "Pending" : (connection.IsAccepted == true ? "Approve" : "Blocked")),
+                                         RequestDate = connection.CreatedDate,
+                                         LastUpdateDate = connection.LastUpdateDate
+                                     }).ToListAsync(cancellationToken);
 
-            return Ok(connections);
+            responseModel.IsSuccess = true;
+            responseModel.Data = connections;
+            responseModel.Message.Add("Connections retrieved successfully");
+            return Ok(responseModel);
         }
         catch (Exception ex)
         {
@@ -244,18 +314,21 @@ public class ConnectionController : Controller
             var connections = await (from user in _db.Users
                                          //join connection in _db.TblConnections on user.UserId equals connection.ReceiverId
                                      join connection in _db.TblConnections on user.UserId equals connection.SenderId
-                                     where  connection.ReceiverId == currentUser.UserId
+                                     where connection.ReceiverId == currentUser.UserId
                                      select new
                                      {
-                                         Mobile = user.PhoneNumber,
-                                         user.Email,
-                                         DoctorName = string.Concat(user.FirstName, " ", user.LastName),
-                                         ConnectioionId = connection.Id,
+                                         mobile = user.PhoneNumber,
+                                         email = user.Email,
+                                         doctor_name = string.Concat(user.FirstName, " ", user.LastName),
+                                         Id = connection.Id,
                                          Status = (connection.IsRejected == false && connection.IsAccepted == false ? "Pending" : (connection.IsAccepted == true ? "Approve" : "Blocked")),
                                          RequestDate = connection.CreatedDate
                                      }).ToListAsync(cancellationToken);
 
-            return Ok(connections);
+            responseModel.IsSuccess = true;
+            responseModel.Data = connections;
+            responseModel.Message.Add("Connections retrieved successfully");
+            return Ok(responseModel);
         }
         catch (Exception ex)
         {
@@ -281,8 +354,8 @@ public class ConnectionController : Controller
         {
             if (ModelState.IsValid)
             {
-                var con=_mapper.Map<ConnectionRequestResponse>(connection);
-                var res=await _connectionService.ConnectionRequestResponse(con);
+                var con = _mapper.Map<ConnectionRequestResponse>(connection);
+                var res = await _connectionService.ConnectionRequestResponse(con);
                 return Ok(res);
             }
             else

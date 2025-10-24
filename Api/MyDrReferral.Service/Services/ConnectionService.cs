@@ -30,7 +30,7 @@ namespace MyDrReferral.Service.Services
             var res = new ServiceResponse();
             try
             {
-                if (connection.ReceiverId<= 0)
+                if (connection.ReceiverId <= 0)
                 {
                     res.Message.Add("Invalid Receiver");
                     return res;
@@ -42,12 +42,19 @@ namespace MyDrReferral.Service.Services
                     return res;
                 }
 
+                if (await _db.TblConnections
+                    .AnyAsync(x => x.SenderId == curreUser.UserId && x.ReceiverId == connection.ReceiverId && x.IsDeleted == false))
+                {
+                    res.Message.Add("Connection Request already sent to selected user");
+                    return res;
+                }
+
                 //Insert Record to tblConnection
                 var conn = new TblConnection()
                 {
                     SenderId = curreUser.UserId,
                     ReceiverId = connection.ReceiverId,
-                    Notes=connection.Notes,
+                    Notes = connection.Notes,
                     CreatedBy = curreUser.UserId,
                     CreatedDate = DateTime.Now,
                     LastUpdateDate = DateTime.Now
@@ -130,7 +137,7 @@ namespace MyDrReferral.Service.Services
                 if (connection != null)
                 {
                     connection.IsAccepted = true;
-                    connection.IsRejected =  false;
+                    connection.IsRejected = false;
                     connection.LastUpdateDate = DateTime.Now;
                     await _db.SaveChangesAsync();
                     res.IsSuccess = true;

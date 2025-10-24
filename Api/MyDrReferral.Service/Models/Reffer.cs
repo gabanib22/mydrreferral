@@ -9,7 +9,7 @@ namespace MyDrReferral.Service.Models
     public class Reffer
     {
         public int Id { get; set; }
-        public int ConnectioionId { get; set; }
+        public int ConnectionId { get; set; }
         //public int PatientId { get; set; }
         public string? PatientName { get; set; }
         public string? Notes { get; set; }

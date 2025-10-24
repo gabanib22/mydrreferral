@@ -65,23 +65,33 @@ namespace MyDrReferral.Service.Services
         public string Authenticate(string UserName, string Password, string userId)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var tokenKey = Encoding.UTF8.GetBytes(_configuration["JWT:Key"]);
+            var tokenKey = Encoding.UTF8.GetBytes(_configuration["JWT:Key"] ?? throw new InvalidOperationException("JWT:Key not found"));
+            var issuer = _configuration["JWT:Issuer"] ?? throw new InvalidOperationException("JWT:Issuer not found");
+            var audience = _configuration["JWT:Audience"] ?? throw new InvalidOperationException("JWT:Audience not found");
+            var expiryMinutes = _configuration.GetValue<int>("JWT:ExpiryMinutes", 60);
+            
+            Console.WriteLine($"Generating JWT Token - Issuer: {issuer}, Audience: {audience}, Expiry: {expiryMinutes} minutes");
+            
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new Claim[]
-              {
-             new Claim(ClaimTypes.NameIdentifier, userId)
-             //new Claim(ClaimTypes.Name, UserName)
-              }),
-                Expires = DateTime.UtcNow.AddMinutes(10),
+                {
+                    new Claim(ClaimTypes.NameIdentifier, userId),
+                    new Claim(ClaimTypes.Name, UserName),
+                    new Claim("userId", userId),
+                    new Claim("userName", UserName)
+                }),
+                Expires = DateTime.UtcNow.AddMinutes(expiryMinutes),
+                Issuer = issuer,
+                Audience = audience,
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(tokenKey), SecurityAlgorithms.HmacSha256Signature)
             };
+            
             var token = tokenHandler.CreateToken(tokenDescriptor);
-            //return new Tokens { Token = tokenHandler.WriteToken(token) };
-
-            var generatedtoken = tokenHandler.WriteToken(token);
-            return generatedtoken;
-
+            var generatedToken = tokenHandler.WriteToken(token);
+            
+            Console.WriteLine($"JWT Token generated successfully for user: {UserName}");
+            return generatedToken;
         }
 
         public async void Logout()

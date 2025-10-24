@@ -1,6 +1,4 @@
-import Header from '@/components/Header';
 import type { Metadata } from 'next'
-
 
 export const metadata: Metadata = {
   title: 'My Connections | My Doctor Referral',
@@ -15,9 +13,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <Header/>
         {children}
-        </body>
+      </body>
     </html>
   )
 }

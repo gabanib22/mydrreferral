@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Text.Json;
 using MyDrReferral.Api.Mapper;
 using MyDrReferral.Api.MediatR;
 using MyDrReferral.Data.Models;
@@ -14,7 +16,11 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower;
+    });
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -34,8 +40,10 @@ builder.Services.AddCors(options =>
 #region Dependency Injections
 builder.Services.AddDbContext<MyDrReferralContext>(options =>
 {
-    //Configuration.GetConnectionString("DefaultConnection")
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), npgsqlOptions =>
+    {
+        npgsqlOptions.EnableRetryOnFailure();
+    });
 });
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
@@ -56,26 +64,93 @@ builder.Services.RegisterRequestHandlers();
 #endregion
 
 
-#region Jwt Token 
-builder.Services.AddAuthentication(x =>
+#region JWT Authentication & Authorization
+// Add JWT Authentication
+builder.Services.AddAuthentication(options =>
 {
-
-    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(o =>
-{
-    var Key = Encoding.UTF8.GetBytes(builder.Configuration["JWT:Key"]);
-    o.SaveToken = true;
-    o.TokenValidationParameters = new TokenValidationParameters
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
     {
-        ValidateIssuer = false,
-        ValidateAudience = false,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = builder.Configuration["JWT:Issuer"],
-        ValidAudience = builder.Configuration["JWT:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Key)
-    };
+        var key = Encoding.UTF8.GetBytes(builder.Configuration["JWT:Key"] ?? throw new InvalidOperationException("JWT:Key not found"));
+        var issuer = builder.Configuration["JWT:Issuer"] ?? throw new InvalidOperationException("JWT:Issuer not found");
+        var audience = builder.Configuration["JWT:Audience"] ?? throw new InvalidOperationException("JWT:Audience not found");
+        
+        Console.WriteLine($"JWT Configuration - Issuer: {issuer}, Audience: {audience}");
+        
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = issuer,
+            ValidAudience = audience,
+            IssuerSigningKey = new SymmetricSecurityKey(key),
+            ClockSkew = TimeSpan.Zero,
+            RequireExpirationTime = true,
+            RequireSignedTokens = true
+        };
+        
+        // Configure JWT Bearer Events
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                Console.WriteLine($"JWT Authentication Failed: {context.Exception.Message}");
+                Console.WriteLine($"Request Path: {context.Request.Path}");
+                Console.WriteLine($"Authorization Header: {context.Request.Headers.Authorization}");
+                return Task.CompletedTask;
+            },
+            OnTokenValidated = context =>
+            {
+                Console.WriteLine("JWT Token validated successfully");
+                Console.WriteLine($"Request Path: {context.Request.Path}");
+                return Task.CompletedTask;
+            },
+            OnChallenge = context =>
+            {
+                Console.WriteLine($"JWT Challenge: {context.Error}, {context.ErrorDescription}");
+                Console.WriteLine($"Request Path: {context.Request.Path}");
+                Console.WriteLine($"Authorization Header: {context.Request.Headers.Authorization}");
+                
+                // Prevent redirect to /Account/Login - return 401 instead
+                context.HandleResponse();
+                context.Response.StatusCode = 401;
+                context.Response.ContentType = "application/json";
+                var result = System.Text.Json.JsonSerializer.Serialize(new { message = "Unauthorized" });
+                return context.Response.WriteAsync(result);
+            },
+            OnMessageReceived = context =>
+            {
+                Console.WriteLine($"JWT Message Received - Path: {context.Request.Path}");
+                Console.WriteLine($"Authorization Header: {context.Request.Headers.Authorization}");
+                return Task.CompletedTask;
+            }
+        };
+    });
+
+// Add Authorization
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("RequireAuthentication", policy =>
+    {
+        policy.RequireAuthenticatedUser();
+    });
+});
+
+// Add CORS for frontend
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
 });
 #endregion
 
@@ -103,14 +178,21 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-//app.UseCors(option => option.WithOrigins("http://localhost:3000").AllowAnyMethod().AllowAnyHeader());
-app.UseCors("AllowSpecificOrigins");
+// Enable CORS
+app.UseCors("AllowFrontend");
+
+// Add request logging middleware
+app.Use(async (context, next) =>
+{
+    Console.WriteLine($"Request: {context.Request.Method} {context.Request.Path}");
+    Console.WriteLine($"Authorization Header: {context.Request.Headers.Authorization}");
+    await next();
+});
 
 app.UseHttpsRedirection();
 
-//17-10-2023
+// Authentication and Authorization must be in this order
 app.UseAuthentication();
-
 app.UseAuthorization();
 
 app.MapControllers();

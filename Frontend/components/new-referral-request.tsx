@@ -1,152 +1,311 @@
-import { requestInstance } from '@/request';
-import { useRouter } from 'next/navigation';
-import React, { ChangeEvent, useEffect, useState } from 'react'
-import TextField from '@mui/material/TextField';
-import Autocomplete from '@mui/material/Autocomplete';
-import { CircularProgress } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Typography,
+  TextField,
+  Button,
+  CircularProgress,
+  Alert,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Paper
+} from '@mui/material';
+import { requestInstance } from '../request';
 
-const NewReferral = ({ close }) => {
+interface NewReferralProps {
+  close: () => void;
+}
+
+const NewReferral: React.FC<NewReferralProps> = ({ close }) => {
   const initialForm = {
-    connectioionId: 0,
-    patientName: '',
+    connection_id: 0,
+    patient_name: '',
     notes: '',
-    rflAmount: 0,
+    rfl_amount: 0,
   };
 
-  const [error, setError] = React.useState<string>("");
-  const [ddlData, setddlData] = React.useState([]);
-  const [formData, setFormData] = React.useState(initialForm);
+  const [error, setError] = useState<string>("");
+  const [success, setSuccess] = useState<string>("");
+  const [connections, setConnections] = useState<Array<{ id: number; doctorName: string; email: string; referralAmount: number }>>([]);
+  const [formData, setFormData] = useState(initialForm);
+  const [loading, setLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(false);
 
-
-
+  // Load connections on component mount
   useEffect(() => {
-
-    console.log("Api NewReferral use effect called....");
-    (async () => {
+    const loadConnections = async () => {
       try {
+        setDataLoading(true);
         setError('');
 
-        //Get All Active (Unblocked Connection)
-        const resData = await requestInstance.getMyConnections(false);
+        const response = await requestInstance.getMyConnections(false);
+        console.log('New Referral - API Response:', response);
+        const resData = response?.data || response || [];
+        console.log('New Referral - Extracted Data:', resData);
 
-        // if (data?.isSuccess) {
-        // setFormData(initialForm);
-        console.log("Recieved data from api : ", resData)
-
-        if (resData.length > 0) {
-          const ddlData = resData.map((val) => ({
-            id: val.connectioionId,
-            doctorName: val.doctorName,
+        if (resData && resData.length > 0) {
+          const connectionsData = resData.map((val: any) => ({
+            id: val.id,
+            doctorName: val.doctor_name,
             email: val.email,
+            referralAmount: val.referral_amount || 0,
           }));
-
-
-          setddlData(ddlData);
+          console.log('New Referral - Mapped Connections:', connectionsData);
+          setConnections(connectionsData);
+        } else {
+          setConnections([]);
         }
-
-        // }
       } catch (error) {
-        console.error("Error while bind my connection ddl : ", error);
+        console.error("Error while fetching connections:", error);
+        setError("Failed to load connections. Please try again.");
+      } finally {
+        setDataLoading(false);
       }
+    };
 
-    })();
-  }, [])
+    loadConnections();
+  }, []);
 
-
-
-  const handleOptionChange = (event: React.ChangeEvent<{}>, value: any) => {
-    // if (value != null && value.id >= 0) {
-    // setSelectedId(value.id);
-
-    setFormData(prevForm => ({
-      ...prevForm,
-      connectioionId: value.id
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'rfl_amount' ? parseFloat(value) || 0 : value
     }));
-    //   setFormData({ ...formData, receiverId: value.id });
-    console.log("Selected Option Value is : ", value.id)
-    // } else {
-    //   // setSelectedId(null);
-    //   console.log("Selected Option Value is null ")
-    // }
+    if (error) setError("");
   };
 
-  const closeDialog = () => {
-    close();
-  }
-
-  const handleChangeInput = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    console.log("handleChangeInput", e.target.value);
-    if (error) setError("");
-    setFormData(prevForm => ({
-      ...prevForm,
-      [e.target.name]: e.target.value
+  const handleConnectionChange = (e: any) => {
+    const connectionId = parseInt(e.target.value);
+    
+    // Find the selected connection to get the referral amount
+    const selectedConnection = connections.find(conn => conn.id === connectionId);
+    const referralAmount = selectedConnection?.referralAmount || 0;
+    
+    console.log('Selected Connection:', selectedConnection);
+    console.log('Referral Amount:', referralAmount);
+    
+    setFormData(prev => ({
+      ...prev,
+      connection_id: connectionId,
+      rfl_amount: referralAmount
     }));
-  }
+    if (error) setError("");
+  };
 
-
-  const handleSubmitForm = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(formData);
-    if (!formData.patientName || !formData.rflAmount || !formData.connectioionId) {
-      setError('Please fill all the fields');
-    } else {
-
-
-      try {
-        setError('');
-        const resData = await requestInstance.sendRefferRequest(formData);
-        if (resData?.isSuccess) {
-          console.log("Recieved data from api : ", resData.message[0]);
-          setFormData(initialForm);
-          close();
-        }
-      } catch (error) {
-        console.error("Error while send data : ", error);
-        // console.error("Error while bind ddl : ", error?.response?.data);
-        // if (!error?.response?.data?.isSuccess && error?.response?.data?.message?.[0]?.includes('is already taken')) {
-        //   setError(`It seems you already have an account, Please go to Login page by click on 'Login now' Button`);
-        // }
-      }
-      finally {
-        // setLoading(false);
-      }
+    
+    // Validation
+    if (!formData.connection_id || formData.connection_id <= 0) {
+      setError("Please select a doctor to refer to.");
+      return;
     }
+    
+    if (!formData.patient_name || formData.patient_name.trim() === '') {
+      setError("Please enter a patient name.");
+      return;
+    }
+    
+    if (!formData.rfl_amount || formData.rfl_amount <= 0) {
+      setError("Please enter a valid referral amount.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+        setError('');
+      setSuccess('');
+
+      // Convert to API format (snake_case to match JsonPropertyName attributes)
+      const apiPayload = {
+        connection_id: formData.connection_id,
+        patient_name: formData.patient_name,
+        notes: formData.notes,
+        rfl_amount: Math.round(formData.rfl_amount), // Convert to integer
+        status: 1 // Set default status (1 = Sent)
+      };
+      
+      console.log('Form Data:', formData);
+      console.log('API Payload:', apiPayload);
+      console.log('PatientName value:', formData.patient_name);
+      console.log('PatientName type:', typeof formData.patient_name);
+      console.log('PatientName length:', formData.patient_name?.length);
+      const response = await requestInstance.sendRefferRequest(apiPayload);
+      
+      // Check for success
+      const isSuccess = response?.is_success || response?.IsSuccess || 
+                       response?.success || response?.Success ||
+                       (response?.status === 200) || 
+                       (response?.statusCode === 200) ||
+                       (response && !response?.error && !response?.Error);
+
+      if (isSuccess) {
+        setSuccess("Referral request sent successfully!");
+          setFormData(initialForm);
+        setTimeout(() => {
+          close();
+        }, 2000);
+      } else {
+        setError(response?.message?.[0] || response?.Message?.[0] || "Failed to send referral request");
+      }
+    } catch (error: any) {
+      console.error("Error while sending referral request:", error);
+      setError(error?.response?.data?.message?.[0] || "Failed to send referral request. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Show loading state while fetching connections
+  if (dataLoading) {
+    return (
+      <Box sx={{ width: '100%', maxWidth: 600, mx: 'auto', p: 4 }}>
+        <Box sx={{ textAlign: 'center' }}>
+          <CircularProgress sx={{ mb: 2 }} />
+          <Typography variant="h6" color="text.secondary">
+            Loading your connections...
+          </Typography>
+        </Box>
+      </Box>
+    );
   }
 
+  // Show no connections message
+  if (connections.length === 0) {
+    return (
+      <Box sx={{ width: '100%', maxWidth: 600, mx: 'auto', p: 4 }}>
+        <Typography variant="h4" component="h1" sx={{ textAlign: 'center', mb: 4, color: 'primary.main', fontWeight: 'bold' }}>
+          New Referral Request
+        </Typography>
+        
+        <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'grey.50' }}>
+          <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
+            No connections found
+          </Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+            You need to connect with doctors first before creating referral requests.
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Go to "My Connections" page to send connection requests to doctors.
+          </Typography>
+        </Paper>
+      </Box>
+    );
+  }
 
   return (
-    <form className='mx-2 flex gap-5 border-none flex-col items-center justify-center border max-w-[600px] m-auto p-5 rounded-lg bg-[var(--light-blue)] w-full'>
-      {/* <h1 className='text-4xl text-center p-[2rem] text-white font-bold'>Sent New Refferal Request</h1> */}
+    <Box sx={{ width: '100%', maxWidth: 600, mx: 'auto' }}>
+      <Typography variant="h4" component="h1" sx={{ textAlign: 'center', mb: 4, color: 'primary.main', fontWeight: 'bold' }}>
+        New Referral Request
+      </Typography>
 
-      <div className="form-group flex gap-2 justify-between items-center w-full max-w-[80%]">
-        <Autocomplete
-          disablePortal
-          id="combo-box-demo2"
-          options={ddlData}
-          getOptionLabel={(opt) => `${opt.doctorName} (${opt.email})`}
-          sx={{ width: 300 }}
-          renderInput={(params) => <TextField {...params} label="Search by name or clinic name" />}
-          onChange={handleOptionChange}
-        // onChange={()=>handleChangeInput}
-        />
-      </div>
-      <div className="form-group flex gap-2 justify-between items-center w-full max-w-[80%]">
-        <input className='text-black px-3 py-2 rounded-lg w-full' type="text" onChange={handleChangeInput} value={formData.patientName} name="patientName" placeholder='Patient Name' id="patientName" />
-      </div>
-      <div className="form-group flex gap-2 justify-between items-center w-full max-w-[80%]">
-        <input className='text-black px-3 py-2 rounded-lg w-full' type="text" onChange={handleChangeInput} value={formData.rflAmount} name="rflAmount" placeholder='Referral Amount' id="rflAmount" />
-      </div>
-      <div className="form-group flex gap-2 justify-between items-center w-full max-w-[80%]">
-        <input className='text-black px-3 py-2 rounded-lg w-full' type="text" onChange={handleChangeInput} value={formData.notes} name="notes" placeholder='Notes' id="notes" />
-      </div>
-      {error && <p className='text-red-500 text-xl font-bold text-center'>{error}</p>}
-      <div>
-        <button className="btn bg-[var(--dark-blue)] tracking-wider text-xl uppercase text-white p-2 rounded px-9" onClick={handleSubmitForm}>Send Request</button>
-        <button className="btn bg-white tracking-wider text-xl uppercase text-[var(--dark-blue)]  p-2 rounded px-9" onClick={closeDialog}>Cancel</button>
-      </div>
-    </form>
-  )
+      <form onSubmit={handleSubmit}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mb: 3 }}>
+          {/* Doctor Selection */}
+          <FormControl fullWidth required>
+            <InputLabel>Select a doctor to refer to</InputLabel>
+            <Select
+              value={formData.connection_id}
+              onChange={handleConnectionChange}
+              label="Select a doctor to refer to"
+              disabled={loading}
+            >
+              <MenuItem value={0}>
+                <em>Choose a doctor...</em>
+              </MenuItem>
+              {connections.map((connection) => (
+                <MenuItem key={connection.id} value={connection.id}>
+                  <Box>
+                    <Typography variant="body1" fontWeight="medium">
+                      {connection.doctorName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {connection.email}
+                    </Typography>
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
 
-}
+          {/* Patient Name */}
+          <TextField
+            name="patient_name"
+            label="Patient Name"
+            placeholder="Enter patient name..."
+            value={formData.patient_name}
+            onChange={handleInputChange}
+            fullWidth
+            required
+            disabled={loading}
+          />
+
+          {/* Referral Amount */}
+          <TextField
+            name="rfl_amount"
+            label="Referral Amount"
+            type="number"
+            placeholder="Enter referral amount..."
+            value={formData.rfl_amount}
+            onChange={handleInputChange}
+            fullWidth
+            required
+            disabled={loading}
+            inputProps={{ min: 0, step: 0.01 }}
+          />
+
+          {/* Notes */}
+          <TextField
+            name="notes"
+            label="Notes (Optional)"
+            placeholder="Enter any additional notes..."
+            value={formData.notes}
+            onChange={handleInputChange}
+            fullWidth
+            multiline
+            rows={3}
+            disabled={loading}
+          />
+        </Box>
+
+        {/* Error/Success Messages */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        
+        {success && (
+          <Alert severity="success" sx={{ mb: 2 }}>
+            {success}
+          </Alert>
+        )}
+
+        {/* Action Buttons */}
+        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+          <Button
+            variant="outlined"
+            onClick={close}
+            disabled={loading}
+            sx={{ minWidth: 100 }}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading || !formData.connection_id || !formData.patient_name.trim() || !formData.rfl_amount}
+            sx={{ minWidth: 100 }}
+          >
+            {loading ? <CircularProgress size={20} /> : 'Send Referral'}
+          </Button>
+        </Box>
+      </form>
+    </Box>
+  );
+};
 
 export default NewReferral;

@@ -12,23 +12,24 @@ class Request {
   BASE_URL = "https://localhost:7031/api/";
 
   private async getRequest(url: string, payload: {},) {
-    const token = window.localStorage.getItem("accessToken");
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem("accessToken") : null;
+    
     const data = await axios.get(this.BASE_URL + url, {
       headers: {
-        Authorization: `Bearer ${token}`
+        Authorization: token ? `Bearer ${token}` : undefined,
+        'Content-Type': 'application/json'
       }
     });
-    // console.log(data);
-    return data;
+    return data?.data;
   }
 
   private async postRequest(url: string, payload: {}, isRequest: boolean = false, isAccessToken: boolean = false) {
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem("accessToken") : null;
+    
     const headerConfig = {
       headers: {
-        'Authorization': window?.localStorage?.getItem("accessToken") ? `bearer ${window?.localStorage?.getItem("accessToken")}` : null
-
-        //24-02-2024 Modified by rutvik tejani
-        // 'Authorization':'bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1laWQiOiI1NTZmYTU4OS1kYmRjLTRmOTMtODE2Mi02NDQwODk4YTQxZGMiLCJuYmYiOjE3MDg3ODM1NzYsImV4cCI6MTcwODc5NDM3NiwiaWF0IjoxNzA4NzgzNTc2fQ.lKwsQ-uEEC7jJn8Agz-6Y6jDT_SBv830K7i6ba4L0fE'
+        'Authorization': token ? `Bearer ${token}` : undefined,
+        'Content-Type': 'application/json'
       }
     }
     // const body = {
@@ -53,32 +54,35 @@ class Request {
     return data?.data;
   }
 
+  private async putRequest(url: string, payload: {}) {
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem("accessToken") : null;
+    
+    const data = await axios.put(this.BASE_URL + url, payload, {
+      headers: {
+        Authorization: token ? `Bearer ${token}` : undefined,
+        'Content-Type': 'application/json'
+      }
+    });
+    return data?.data;
+  }
+
   async login(payload: LoginPayload) {
-    console.log("from client", payload);
     const data = await this.postRequest('User/login', payload);
-    console.log("This is login function inside Request class", data);
     // setLocalStorageItem("This", "faevd");
     return data;
   }
-  async getRefferals() {
-    console.log("from client");
+  async getSentReferrals() {
     const data = await this.getRequest('Reffer/getSentReferrals', {});
-    console.log("This is get referrals data -> ", data);
-    // setLocalStorageItem("This", "faevd");
     return data;
   }
 
-  async getDoctors() {
-    console.log("from client");
+  async getReceivedReferrals() {
     const data = await this.getRequest('Reffer/getReceivedReferrals', {});
-    console.log("This is get ReceivedReferrals data -> ", data);
-    // setLocalStorageItem("This", "faevd");
     return data;
   }
 
   async register(payload: RegisterPayload) {
     const data = await this.postRequest('User/register', payload);
-    console.log("This is login function inside Request class", data);
     // setLocalStorageItem("This", "faevd");
     window.localStorage.setItem("This", "faevd");
     return data;
@@ -87,39 +91,31 @@ class Request {
   //21-02-2024 Added By Rutvik Tejani
   async getDoctorDdlData(payload: string) {
 
-    console.log("This isgetDoctorDataDdl payload val inside Request class", payload);
-    const data = await this.getRequest('User/filterDoctorDataByText/'+payload,{});
-    console.log("This isgetDoctorDataDdl function inside Request class", data);
+    const data = await this.getRequest('Doctor/search/'+payload,{});
 
-    return data.data;
+    return data.data; // Return the full response object, not just data.data
   }
 
 //24-02-2024 Added By Rutvik Tejani
 async sendConnectionRequest(payload: ConnectionRequest) {
-
-  console.log("This sendConnectionRequest payload val inside Request class", payload);
+  console.log("Sending connection request payload:", payload);
   // const data = await this.postRequest(`Connection/connectionRequest?receiverId=${payload.receiverId}`,{});
-  const data = await this.postRequest(`Connection/connectionRequest`,payload);
-  console.log("This sendConnectionRequest function inside Request class", data);
-
+  const data = await this.postRequest(`Connection/connection-request`,payload);
+  console.log("Connection request response:", data);
   return data;
 }
 
 //25-02-2024 Added By Rutvik Tejani
 async getMyConnections(payload: boolean) {
 
-  console.log("This getMyConnections payload val inside Request class", payload);
   const data = await this.getRequest(`Connection/getMyConnections?isBlocked=${payload}`,{});
-  console.log("This getMyConnections function inside Request class", data);
 
   return data.data;
 }
 
 async getMyAllConnections() {
 
-  console.log("This getMyAllConnections payload val inside Request class");
   const data = await this.getRequest(`Connection/getMyAllConnections`,{});
-  console.log("This getMyAllConnections function inside Request class", data);
 
   return data.data;
 }
@@ -127,9 +123,7 @@ async getMyAllConnections() {
 //25-02-2024 Added By Rutvik Tejani
 async sendRefferRequest(payload: RefferRequest) {
 
-  console.log("This sendRefferRequest payload val inside Request class", payload);
   const data = await this.postRequest('Reffer/addNewReffer',payload);
-  console.log("This sendRefferRequest function inside Request class", data);
 
   return data;
 }
@@ -137,38 +131,51 @@ async sendRefferRequest(payload: RefferRequest) {
 //27-02-2024 Added By Rutvik Tejani
 async getRecievedConnectionRequests(payload: boolean) {
 
-  console.log("This getRecievedConnectionRequests payload val inside Request class", payload);
   const data = await this.getRequest(`Connection/getConnectionRequests?isBlocked=${payload}`,{});
-  console.log("This getRecievedConnectionRequests function inside Request class", data);
 
   return data.data;
 }
 async getAllRecievedConnectionRequests() {
 
-  console.log("This getAllRecievedConnectionRequests payload val inside Request class");
   const data = await this.getRequest(`Connection/getAllConnectionRequests`,{});
-  console.log("This getAllRecievedConnectionRequests function inside Request class", data);
 
   return data.data;
 }
 
 async sendconnectionResponse(payload: ConnectionResponse) {
 
-  console.log("This sendconnectionResponse payload val inside Request class", payload);
   const data = await this.postRequest(`Connection/connectionResponse`,payload);
-  console.log("This sendconnectionResponse function inside Request class", data);
 
-  return data.data;
+  return data;
 }
 
 async sendunblockConnectionRequest(payload: number) {
 
-  console.log("This sendunblockConnectionRequest payload val inside Request class", payload);
   const data = await this.postRequest(`Connection/unblockConnection?connectionId=${payload}`,{});
-  console.log("This sendunblockConnectionRequest function inside Request class", data);
 
   return data.data;
 }
+
+  async getUserProfile() {
+    const data = await this.getRequest('User/profile', {});
+
+    return data;
+  }
+
+  async updateUserProfile(payload: any) {
+    const data = await this.putRequest('User/profile', payload);
+
+    return data;
+  }
+
+  async updateReferralStatus(referralId: string, status: string) {
+    const payload = {
+      referral_id: referralId,
+      status: status
+    };
+    const data = await this.putRequest('Reffer/updateStatusSimple', payload);
+    return data;
+  }
 
 
   request() {
