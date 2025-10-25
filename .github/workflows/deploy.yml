@@ -211,9 +211,26 @@ jobs:
             # Set proper permissions
             sudo chown -R ec2-user:ec2-user /var/www/mydrreferral/Api
             
-            # Start the API service
-            echo "Starting API service..."
-            sudo systemctl start mydrreferral-api.service
+            # Update the startup script to point to the correct location
+            echo "Updating startup script..."
+            sudo cat > /var/www/mydrreferral/start-api.sh << 'EOF'
+            #!/bin/bash
+            cd /var/www/mydrreferral/Api/MyDrReferral.Api
+            
+            # Set environment variables
+            export ASPNETCORE_ENVIRONMENT=Production
+            export ASPNETCORE_URLS=http://+:80
+            
+            # Start the API
+            dotnet MyDrReferral.Api.dll
+            EOF
+            
+            sudo chmod +x /var/www/mydrreferral/start-api.sh
+            
+            # Restart the API service
+            echo "Restarting API service..."
+            sudo systemctl daemon-reload
+            sudo systemctl restart mydrreferral-api.service
             sudo systemctl status mydrreferral-api.service
 
   # Database Migration
