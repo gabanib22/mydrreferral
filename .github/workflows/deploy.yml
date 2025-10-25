@@ -211,17 +211,48 @@ jobs:
             # Set proper permissions
             sudo chown -R ec2-user:ec2-user /var/www/mydrreferral/Api
             
+            # Debug: Check what's in the extracted package
+            echo "🔍 Debugging extracted package structure..."
+            ls -la /var/www/mydrreferral/Api/
+            echo "Checking for MyDrReferral.Api directory..."
+            find /var/www/mydrreferral/Api/ -name "MyDrReferral.Api*" -type d
+            echo "Checking for .dll files..."
+            find /var/www/mydrreferral/Api/ -name "*.dll" -type f
+            echo "Checking dotnet installation..."
+            which dotnet
+            dotnet --version
+            
             # Update the startup script to point to the correct location
             echo "🔧 Updating startup script with latest fixes..."
             sudo cat > /var/www/mydrreferral/start-api.sh << 'EOF'
             #!/bin/bash
-            cd /var/www/mydrreferral/Api/MyDrReferral.Api
+            echo "Starting MyDrReferral API..."
+            echo "Current directory: $(pwd)"
+            echo "Available files:"
+            ls -la
+            
+            # Find the correct API directory
+            API_DIR=$(find /var/www/mydrreferral/Api/ -name "MyDrReferral.Api*" -type d | head -1)
+            echo "Found API directory: $API_DIR"
+            
+            if [ -z "$API_DIR" ]; then
+              echo "❌ MyDrReferral.Api directory not found!"
+              echo "Available directories:"
+              find /var/www/mydrreferral/Api/ -type d
+              exit 1
+            fi
+            
+            cd "$API_DIR"
+            echo "Changed to: $(pwd)"
+            echo "Files in API directory:"
+            ls -la
             
             # Set environment variables
             export ASPNETCORE_ENVIRONMENT=Production
             export ASPNETCORE_URLS=http://+:80
             
             # Start the API
+            echo "Starting API with: dotnet MyDrReferral.Api.dll"
             dotnet MyDrReferral.Api.dll
             EOF
             
