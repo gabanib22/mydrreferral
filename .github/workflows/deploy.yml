@@ -189,7 +189,13 @@ jobs:
             
             cd /var/www/mydrreferral/Api
             if [ -f "mydrreferral-api.tar.gz" ]; then
-              echo "✅ Deployment package found, extracting..."
+              echo "✅ Deployment package found in current directory, extracting..."
+              tar -xzf mydrreferral-api.tar.gz
+              rm mydrreferral-api.tar.gz
+              echo "✅ Extraction completed"
+            elif [ -f "Api/mydrreferral-api.tar.gz" ]; then
+              echo "✅ Deployment package found in Api/ subdirectory, extracting..."
+              cd Api
               tar -xzf mydrreferral-api.tar.gz
               rm mydrreferral-api.tar.gz
               echo "✅ Extraction completed"
@@ -197,6 +203,8 @@ jobs:
               echo "❌ Deployment package not found!"
               echo "Available files:"
               ls -la
+              echo "Looking in subdirectories:"
+              find . -name "*.tar.gz" -type f
               exit 1
             fi
             
