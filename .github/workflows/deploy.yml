@@ -133,7 +133,13 @@ jobs:
       - name: Create deployment package
         run: |
           cd Api
+          echo "Creating deployment package..."
+          echo "Contents of publish directory:"
+          ls -la publish/
           tar -czf mydrreferral-api.tar.gz -C publish .
+          echo "Deployment package created:"
+          ls -la mydrreferral-api.tar.gz
+          echo "Package size: $(du -h mydrreferral-api.tar.gz)"
 
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.0
@@ -152,6 +158,14 @@ jobs:
             sudo mkdir -p /var/www/mydrreferral/Api
             sudo chown -R ec2-user:ec2-user /var/www/mydrreferral/Api
 
+      - name: Debug deployment package
+        run: |
+          echo "Checking deployment package before copy..."
+          echo "Source file exists: $(ls -la Api/mydrreferral-api.tar.gz)"
+          echo "File size: $(du -h Api/mydrreferral-api.tar.gz)"
+          echo "Current directory contents:"
+          ls -la Api/
+
       - name: Copy files to EC2
         uses: appleboy/scp-action@v0.1.4
         with:
@@ -168,14 +182,29 @@ jobs:
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            echo "Checking EC2 deployment directory..."
+            ls -la /var/www/mydrreferral/Api/
+            echo "Looking for deployment package..."
+            find /var/www/mydrreferral/ -name "*.tar.gz" -type f
+            
             cd /var/www/mydrreferral/Api
-            tar -xzf mydrreferral-api.tar.gz
-            rm mydrreferral-api.tar.gz
+            if [ -f "mydrreferral-api.tar.gz" ]; then
+              echo "✅ Deployment package found, extracting..."
+              tar -xzf mydrreferral-api.tar.gz
+              rm mydrreferral-api.tar.gz
+              echo "✅ Extraction completed"
+            else
+              echo "❌ Deployment package not found!"
+              echo "Available files:"
+              ls -la
+              exit 1
+            fi
             
             # Set proper permissions
             sudo chown -R ec2-user:ec2-user /var/www/mydrreferral/Api
             
             # Start the API service
+            echo "Starting API service..."
             sudo systemctl start mydrreferral-api.service
             sudo systemctl status mydrreferral-api.service
 
