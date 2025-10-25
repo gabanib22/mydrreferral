@@ -33,6 +33,10 @@ jobs:
         run: |
           cd Frontend
           npm run build
+          echo "Build completed. Checking output directory..."
+          ls -la out/ || echo "out/ directory not found"
+          echo "Contents of Frontend directory:"
+          ls -la
         env:
           NEXT_PUBLIC_API_URL: http://52.66.197.58
 
@@ -79,9 +83,20 @@ jobs:
       - name: Deploy to S3
         run: |
           echo "Deploying frontend to S3 bucket: ${{ secrets.S3_BUCKET_NAME }}"
-          aws s3 sync Frontend/out/ s3://${{ secrets.S3_BUCKET_NAME }} --delete
-          aws s3 cp Frontend/out/index.html s3://${{ secrets.S3_BUCKET_NAME }}/index.html
-          echo "Frontend deployment completed successfully!"
+          echo "Checking if Frontend/out/ directory exists..."
+          if [ -d "Frontend/out" ]; then
+            echo "✅ Frontend/out/ directory found"
+            aws s3 sync Frontend/out/ s3://${{ secrets.S3_BUCKET_NAME }} --delete
+            aws s3 cp Frontend/out/index.html s3://${{ secrets.S3_BUCKET_NAME }}/index.html
+            echo "Frontend deployment completed successfully!"
+          else
+            echo "❌ Frontend/out/ directory not found"
+            echo "Available directories in Frontend:"
+            ls -la Frontend/
+            echo "Trying to find build output..."
+            find Frontend/ -name "*.html" -o -name "index.*" | head -10
+            exit 1
+          fi
 
   # Deploy API to EC2
   deploy-api:
