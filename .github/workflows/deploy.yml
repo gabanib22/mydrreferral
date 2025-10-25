@@ -222,9 +222,33 @@ jobs:
             which dotnet
             if ! command -v dotnet &> /dev/null; then
               echo "❌ .NET not found! Installing .NET 8 Runtime..."
-              sudo rpm -Uvh https://packages.microsoft.com/config/centos/7/packages-microsoft-prod.rpm
-              sudo yum install -y dotnet-runtime-8.0
-              echo "✅ .NET installation completed"
+              
+              # Install wget if not available
+              sudo yum install -y wget
+              
+              # Use the official Microsoft installation script
+              echo "Installing .NET 8 using official script..."
+              curl -sSL https://dot.net/v1/dotnet-install.sh | sudo bash /dev/stdin --channel 8.0
+              
+              # Add dotnet to PATH
+              echo 'export DOTNET_ROOT=$HOME/.dotnet' >> ~/.bashrc
+              echo 'export PATH=$PATH:$HOME/.dotnet' >> ~/.bashrc
+              export DOTNET_ROOT=$HOME/.dotnet
+              export PATH=$PATH:$HOME/.dotnet
+              
+              # Create symlink for system-wide access
+              sudo ln -sf $HOME/.dotnet/dotnet /usr/bin/dotnet
+              
+              echo "✅ .NET 8 manually installed"
+              
+              # Verify installation
+              if command -v dotnet &> /dev/null; then
+                echo "✅ .NET installation completed:"
+                dotnet --version
+              else
+                echo "❌ .NET installation failed!"
+                exit 1
+              fi
             else
               echo "✅ .NET found:"
               dotnet --version
