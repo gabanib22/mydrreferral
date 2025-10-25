@@ -6,9 +6,16 @@
 # Update system
 yum update -y
 
-# Install .NET 8 SDK
+# Install .NET 8 Runtime (not SDK)
 rpm -Uvh https://packages.microsoft.com/config/centos/7/packages-microsoft-prod.rpm
+yum install -y dotnet-runtime-8.0
+
+# Also install the SDK for development tools
 yum install -y dotnet-sdk-8.0
+
+# Verify installation
+dotnet --version
+echo "✅ .NET installation completed"
 
 # Install Nginx
 yum install -y nginx

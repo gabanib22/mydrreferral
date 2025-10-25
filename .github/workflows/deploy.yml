@@ -220,7 +220,15 @@ jobs:
             find /var/www/mydrreferral/Api/ -name "*.dll" -type f
             echo "Checking dotnet installation..."
             which dotnet
-            dotnet --version
+            if ! command -v dotnet &> /dev/null; then
+              echo "❌ .NET not found! Installing .NET 8 Runtime..."
+              sudo rpm -Uvh https://packages.microsoft.com/config/centos/7/packages-microsoft-prod.rpm
+              sudo yum install -y dotnet-runtime-8.0
+              echo "✅ .NET installation completed"
+            else
+              echo "✅ .NET found:"
+              dotnet --version
+            fi
             
             # Update the startup script to point to the correct location
             echo "🔧 Updating startup script with latest fixes..."
