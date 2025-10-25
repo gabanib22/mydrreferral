@@ -212,7 +212,7 @@ jobs:
             sudo chown -R ec2-user:ec2-user /var/www/mydrreferral/Api
             
             # Update the startup script to point to the correct location
-            echo "Updating startup script..."
+            echo "🔧 Updating startup script with latest fixes..."
             sudo cat > /var/www/mydrreferral/start-api.sh << 'EOF'
             #!/bin/bash
             cd /var/www/mydrreferral/Api/MyDrReferral.Api
