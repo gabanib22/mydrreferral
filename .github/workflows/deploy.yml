@@ -220,7 +220,18 @@ jobs:
             find /var/www/mydrreferral/Api/ -name "*.dll" -type f
             echo "Checking dotnet installation..."
             which dotnet
-            if ! command -v dotnet &> /dev/null; then
+            
+            # Check if .NET is available in common locations
+            if command -v dotnet &> /dev/null; then
+              echo "✅ .NET found in PATH:"
+              dotnet --version
+            elif [ -f "/root/.dotnet/dotnet" ]; then
+              echo "✅ .NET found at /root/.dotnet/dotnet:"
+              /root/.dotnet/dotnet --version
+            elif [ -f "/usr/bin/dotnet" ]; then
+              echo "✅ .NET found at /usr/bin/dotnet:"
+              /usr/bin/dotnet --version
+            else
               echo "❌ .NET not found! Installing .NET 8 Runtime..."
               
               # Install wget if not available
@@ -242,16 +253,13 @@ jobs:
               echo "✅ .NET 8 manually installed"
               
               # Verify installation
-              if command -v dotnet &> /dev/null; then
+              if [ -f "/root/.dotnet/dotnet" ]; then
                 echo "✅ .NET installation completed:"
-                dotnet --version
+                /root/.dotnet/dotnet --version
               else
                 echo "❌ .NET installation failed!"
                 exit 1
               fi
-            else
-              echo "✅ .NET found:"
-              dotnet --version
             fi
             
             # Update the startup script to point to the correct location
