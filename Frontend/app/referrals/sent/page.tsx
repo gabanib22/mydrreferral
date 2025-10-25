@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useUser } from '../../../contexts/UserContext';
 import Header from '../../../components/Header';
@@ -50,13 +50,7 @@ const SentReferrals: React.FC = () => {
     requireAuth();
   }, [requireAuth]);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchSentReferrals();
-    }
-  }, [isAuthenticated]);
-
-  const fetchSentReferrals = async () => {
+  const fetchSentReferrals = useCallback(async () => {
     try {
       setLoading(true);
       const response = await requestInstance.getSentReferrals();
@@ -99,7 +93,13 @@ const SentReferrals: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchSentReferrals();
+    }
+  }, [isAuthenticated, fetchSentReferrals]);
 
   const getStatusFromItem = (item: any): SentReferral['status'] => {
     const status = item.status?.toLowerCase();
@@ -267,7 +267,7 @@ const SentReferrals: React.FC = () => {
               <FileText className="w-8 h-8 text-blue-600" />
               <h1 className="text-3xl font-bold text-gray-900">Sent Referrals</h1>
             </div>
-            <p className="text-gray-600">Track referrals you've sent to other doctors</p>
+            <p className="text-gray-600">Track referrals you&apos;ve sent to other doctors</p>
           </div>
 
           {/* Stats Cards */}
@@ -343,7 +343,7 @@ const SentReferrals: React.FC = () => {
             <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
               <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No Referrals Sent</h3>
-              <p className="text-gray-600 mb-6">You haven't sent any referrals to other doctors yet.</p>
+              <p className="text-gray-600 mb-6">You haven&apos;t sent any referrals to other doctors yet.</p>
               <p className="text-sm text-gray-500">Start by creating a new referral from the Referrals menu.</p>
             </div>
           ) : (

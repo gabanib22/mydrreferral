@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useUser } from '../../../contexts/UserContext';
 import Header from '../../../components/Header';
@@ -50,13 +50,7 @@ const ReceivedReferrals: React.FC = () => {
     requireAuth();
   }, [requireAuth]);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchReceivedReferrals();
-    }
-  }, [isAuthenticated]);
-
-  const fetchReceivedReferrals = async () => {
+  const fetchReceivedReferrals = useCallback(async () => {
     try {
       setLoading(true);
       const response = await requestInstance.getReceivedReferrals();
@@ -100,7 +94,13 @@ const ReceivedReferrals: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchReceivedReferrals();
+    }
+  }, [isAuthenticated, fetchReceivedReferrals]);
 
   const getStatusFromItem = (item: any): ReceivedReferral['status'] => {
     // Use the status field directly from the API response (snake_case)
@@ -358,7 +358,7 @@ const ReceivedReferrals: React.FC = () => {
             <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
               <UserCheck className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No Referrals Yet</h3>
-              <p className="text-gray-600 mb-6">You haven't received any referrals from other doctors yet.</p>
+              <p className="text-gray-600 mb-6">You haven&apos;t received any referrals from other doctors yet.</p>
               <p className="text-sm text-gray-500">Referrals will appear here when other doctors send patients to you.</p>
             </div>
           ) : (

@@ -189,7 +189,7 @@ const NewReferral: React.FC<NewReferralProps> = ({ close }) => {
             You need to connect with doctors first before creating referral requests.
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Go to "My Connections" page to send connection requests to doctors.
+            Go to &quot;My Connections&quot; page to send connection requests to doctors.
           </Typography>
         </Paper>
       </Box>

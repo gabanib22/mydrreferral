@@ -187,7 +187,6 @@ const NewConnection: React.FC<NewConnectionProps> = ({ close }) => {
             />
             
             {/* Manual Dropdown */}
-            {console.log('Dropdown render check - data.length:', data.length, 'open:', open, 'condition:', data.length > 0 && open)}
             {data.length > 0 && open && (
               <Box
                 sx={{

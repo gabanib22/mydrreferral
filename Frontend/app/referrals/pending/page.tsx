@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
 import { useUser } from '../../../contexts/UserContext';
 import Header from '../../../components/Header';
@@ -51,13 +51,7 @@ const PendingReferrals: React.FC = () => {
     requireAuth();
   }, [requireAuth]);
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchPendingReferrals();
-    }
-  }, [isAuthenticated]);
-
-  const fetchPendingReferrals = async () => {
+  const fetchPendingReferrals = useCallback(async () => {
     try {
       setLoading(true);
       const response = await requestInstance.getReceivedReferrals();
@@ -98,7 +92,13 @@ const PendingReferrals: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchPendingReferrals();
+    }
+  }, [isAuthenticated, fetchPendingReferrals]);
 
   const getStatusFromItem = (item: any): PendingReferral['status'] => {
     if (item.IsPaid) return 'payment_pending'; // This shouldn't happen for pending
