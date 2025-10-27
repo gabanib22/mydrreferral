@@ -199,6 +199,7 @@ jobs:
             cd /var/www/mydrreferral/Api
             if [ -f "mydrreferral-api.tar.gz" ]; then
               echo "✅ Deployment package found in current directory, extracting..."
+              # Extract to current directory (not a subdirectory)
               tar -xzf mydrreferral-api.tar.gz
               rm mydrreferral-api.tar.gz
               echo "✅ Extraction completed"
@@ -323,13 +324,22 @@ jobs:
             
             # Find the correct API directory
             API_DIR=$(find /var/www/mydrreferral/Api/ -name "MyDrReferral.Api*" -type d | head -1)
-            echo "Found API directory: $API_DIR"
             
+            # If no subdirectory found, check if .dll files are directly in Api/
             if [ -z "$API_DIR" ]; then
-              echo "❌ MyDrReferral.Api directory not found!"
-              echo "Available directories:"
-              find /var/www/mydrreferral/Api/ -type d
-              exit 1
+              if [ -f "/var/www/mydrreferral/Api/MyDrReferral.Api.dll" ]; then
+                API_DIR="/var/www/mydrreferral/Api"
+                echo "Found API files directly in Api/ directory"
+              else
+                echo "❌ MyDrReferral.Api directory or .dll file not found!"
+                echo "Available directories:"
+                find /var/www/mydrreferral/Api/ -type d
+                echo "Available files:"
+                ls -la /var/www/mydrreferral/Api/ | head -20
+                exit 1
+              fi
+            else
+              echo "Found API directory: $API_DIR"
             fi
             
             cd "$API_DIR"
