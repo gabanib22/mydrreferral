@@ -262,7 +262,7 @@ resource "aws_db_instance" "main" {
 
   # Engine configuration
   engine         = "postgres"
-  engine_version = "15.4"
+  engine_version = "15.14"
   instance_class = "db.t3.micro"  # Free tier eligible
 
   # Database configuration
@@ -287,12 +287,10 @@ resource "aws_db_instance" "main" {
   maintenance_window     = "sun:04:00-sun:05:00"
 
   # Monitoring
-  monitoring_interval = 60
-  monitoring_role_arn = aws_iam_role.rds_enhanced_monitoring.arn
+  monitoring_interval = 0  # Disable enhanced monitoring to avoid IAM role requirement
 
   # Performance insights
-  performance_insights_enabled = true
-  performance_insights_retention_period = 7
+  performance_insights_enabled = false  # Disable to avoid IAM role requirement
 
   # Deletion protection
   deletion_protection = false  # Set to true for production
@@ -304,33 +302,8 @@ resource "aws_db_instance" "main" {
   }
 }
 
-# IAM Role for RDS Enhanced Monitoring
-resource "aws_iam_role" "rds_enhanced_monitoring" {
-  name = "${var.project_name}-rds-monitoring-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "monitoring.rds.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = {
-    Name        = "${var.project_name}-rds-monitoring-role"
-    Environment = var.environment
-  }
-}
-
-resource "aws_iam_role_policy_attachment" "rds_enhanced_monitoring" {
-  role       = aws_iam_role.rds_enhanced_monitoring.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
-}
+# Note: IAM roles removed to avoid permission issues
+# Enhanced monitoring and performance insights disabled for Free Tier compatibility
 
 # S3 Bucket for React Frontend
 resource "aws_s3_bucket" "frontend" {
