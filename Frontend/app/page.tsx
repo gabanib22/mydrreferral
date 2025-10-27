@@ -174,7 +174,7 @@ function Home() {
       
       // More specific error messages
       if (error?.code === 'ERR_NETWORK' || error?.message?.includes('Network Error')) {
-        setError("Cannot connect to the server. Please make sure the API server is running on https://localhost:7031");
+        setError("Cannot connect to the server. Please make sure the API server is running on http://3.110.30.11");
       } else if (error?.response?.status === 401) {
         setError("Authentication failed. Please log in again.");
       } else if (error?.response?.status === 403) {
