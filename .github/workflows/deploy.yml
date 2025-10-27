@@ -186,6 +186,15 @@ jobs:
             ls -la /var/www/mydrreferral/Api/
             echo "Looking for deployment package..."
             find /var/www/mydrreferral/ -name "*.tar.gz" -type f
+            echo "Checking if file was copied..."
+            if [ -f "/var/www/mydrreferral/Api/mydrreferral-api.tar.gz" ]; then
+              echo "✅ Package found at expected location"
+              ls -la /var/www/mydrreferral/Api/mydrreferral-api.tar.gz
+            else
+              echo "❌ Package not found at expected location"
+              echo "Searching entire filesystem..."
+              find / -name "mydrreferral-api.tar.gz" -type f 2>/dev/null || echo "Not found anywhere"
+            fi
             
             cd /var/www/mydrreferral/Api
             if [ -f "mydrreferral-api.tar.gz" ]; then
@@ -342,6 +351,14 @@ jobs:
             # Install and configure Nginx
             echo "🔧 Installing and configuring Nginx..."
             sudo yum install -y nginx
+            
+            # Verify Nginx installation
+            if command -v nginx &> /dev/null; then
+              echo "✅ Nginx installed successfully"
+            else
+              echo "❌ Nginx installation failed"
+              exit 1
+            fi
             
             # Create Nginx configuration for API proxy
             echo "Creating Nginx configuration..."
