@@ -330,7 +330,7 @@ jobs:
             
             # Set environment variables
             export ASPNETCORE_ENVIRONMENT=Production
-            export ASPNETCORE_URLS=http://+:80
+            export ASPNETCORE_URLS=http://+:5000
             
             # Start the API
             echo "Starting API with: $DOTNET_CMD MyDrReferral.Api.dll"
@@ -339,10 +339,44 @@ jobs:
             
             sudo chmod +x /var/www/mydrreferral/start-api.sh
             
+            # Install and configure Nginx
+            echo "🔧 Installing and configuring Nginx..."
+            sudo yum install -y nginx
+            
+            # Create Nginx configuration for API proxy
+            echo "Creating Nginx configuration..."
+            sudo tee /etc/nginx/conf.d/mydrreferral.conf > /dev/null << 'EOF'
+            server {
+                listen 80;
+                server_name _;
+                
+                location / {
+                    proxy_pass http://localhost:5000;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                }
+            }
+            EOF
+            
+            # Test and start Nginx
+            sudo nginx -t
+            sudo systemctl enable nginx
+            sudo systemctl start nginx
+            sudo systemctl reload nginx
+            
+            echo "✅ Nginx configured and started"
+            
             # Restart the API service
             echo "Restarting API service..."
             sudo systemctl daemon-reload
             sudo systemctl restart mydrreferral-api.service
+            sudo systemctl status mydrreferral-api.service
+            
+            # Show final status
+            echo "🔍 Final service status:"
+            sudo systemctl status nginx
             sudo systemctl status mydrreferral-api.service
 
   # Database Migration
