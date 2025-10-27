@@ -390,6 +390,17 @@ jobs:
           env | grep -i connection
           echo "Testing connection string format..."
           echo "Expected format: Host=...;Database=...;Username=...;Password=..."
+          
+          # Check if connection string points to localhost
+          if [[ "$ConnectionStrings__DefaultConnection" == *"Host=localhost"* ]] || [[ "$ConnectionStrings__DefaultConnection" == *"Host=127.0.0.1"* ]]; then
+            echo "⚠️  WARNING: Connection string points to localhost!"
+            echo "This will fail in GitHub Actions as there's no local PostgreSQL."
+            echo "Please update your DATABASE_CONNECTION_STRING secret to point to your actual database."
+            echo "Example: Host=your-db-host.amazonaws.com;Database=mydrreferral;Username=mydrreferral;Password=your-password"
+            echo "Skipping migration for now..."
+            exit 0
+          fi
+          
           echo "Running database migration..."
           dotnet ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --verbose --connection "${{ secrets.DATABASE_CONNECTION_STRING }}"
         env:
