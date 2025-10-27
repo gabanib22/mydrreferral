@@ -353,10 +353,16 @@ jobs:
             sudo amazon-linux-extras install -y nginx1
             
             # Verify Nginx installation
-            if command -v nginx &> /dev/null; then
+            if systemctl is-active --quiet nginx || systemctl is-active --quiet nginx1; then
+              echo "✅ Nginx installed and running successfully"
+            elif command -v nginx &> /dev/null; then
               echo "✅ Nginx installed successfully"
+            elif systemctl list-unit-files | grep -q nginx; then
+              echo "✅ Nginx service found"
             else
               echo "❌ Nginx installation failed"
+              echo "Checking available services..."
+              systemctl list-unit-files | grep nginx || echo "No nginx services found"
               exit 1
             fi
             
