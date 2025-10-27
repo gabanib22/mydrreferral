@@ -525,11 +525,11 @@ jobs:
         run: |
           sleep 30
           echo "🔍 Starting API health check..."
-          echo "Testing API at: http://${{ secrets.EC2_HOST }}/api/health"
+          echo "Testing API at: http://${{ secrets.EC2_HOST }}/api/healthcheck/success"
           
           for i in {1..10}; do
             echo "Attempt $i: Testing API health..."
-            if curl -f -m 10 http://${{ secrets.EC2_HOST }}/api/health; then
+            if curl -f -m 10 http://${{ secrets.EC2_HOST }}/api/healthcheck/success; then
               echo "✅ API is healthy!"
               exit 0
             else
@@ -560,7 +560,7 @@ jobs:
       - name: Test API endpoints
         run: |
           # Test health endpoint
-          curl -f http://${{ secrets.EC2_HOST }}/api/health
+          curl -f http://${{ secrets.EC2_HOST }}/api/healthcheck/success
           
           # Test API connectivity
           curl -f http://${{ secrets.EC2_HOST }}/api/User/test || echo "User endpoint test failed"
