@@ -358,10 +358,32 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Install Entity Framework tools
+        run: |
+          dotnet tool install --global dotnet-ef
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Verify EF tools installation
+        run: |
+          dotnet ef --version
+          echo "✅ Entity Framework tools installed successfully"
+
+      - name: Restore dependencies
+        run: |
+          cd Api
+          dotnet restore
+
       - name: Run database migrations
         run: |
           cd Api
-          dotnet ef database update --project MyDrReferral.Data --startup-project MyDrReferral.Api
+          echo "🔍 Debugging database migration..."
+          echo "Current directory: $(pwd)"
+          echo "Available projects:"
+          ls -la *.csproj
+          echo "Checking EF tools:"
+          dotnet ef --version
+          echo "Running database migration..."
+          dotnet ef database update --project MyDrReferral.Data --startup-project MyDrReferral.Api --verbose
         env:
           ConnectionStrings__DefaultConnection: ${{ secrets.DATABASE_CONNECTION_STRING }}
 
