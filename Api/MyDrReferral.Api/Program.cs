@@ -29,15 +29,11 @@ builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowSpecificOrigins", policy =>
+    options.AddPolicy("AllowAllOrigins", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:3000", // Local development
-                "http://mydrreferral-frontend-1eqovfla.s3-website.ap-south-1.amazonaws.com" // Production S3 frontend
-              )
+        policy.AllowAnyOrigin()
               .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
+              .AllowAnyHeader();
     });
 });
 
@@ -183,7 +179,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // Enable CORS
-app.UseCors("AllowFrontend");
+app.UseCors("AllowAllOrigins");
 
 // Add request logging middleware
 app.Use(async (context, next) =>
