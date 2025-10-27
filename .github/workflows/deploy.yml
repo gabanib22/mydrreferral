@@ -371,7 +371,8 @@ jobs:
       - name: Restore dependencies
         run: |
           cd Api
-          dotnet restore
+          echo "Restoring dependencies for all projects..."
+          dotnet restore MyDrReferral.Api/MyDrReferral.Api.csproj
 
       - name: Run database migrations
         run: |
@@ -379,11 +380,11 @@ jobs:
           echo "🔍 Debugging database migration..."
           echo "Current directory: $(pwd)"
           echo "Available projects:"
-          ls -la *.csproj
+          find . -name "*.csproj" -type f
           echo "Checking EF tools:"
           dotnet ef --version
           echo "Running database migration..."
-          dotnet ef database update --project MyDrReferral.Data --startup-project MyDrReferral.Api --verbose
+          dotnet ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --verbose
         env:
           ConnectionStrings__DefaultConnection: ${{ secrets.DATABASE_CONNECTION_STRING }}
 
