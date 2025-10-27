@@ -401,8 +401,34 @@ jobs:
             exit 0
           fi
           
-          echo "Running database migration..."
-          dotnet ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --verbose --connection "${{ secrets.DATABASE_CONNECTION_STRING }}"
+          echo "Testing database connection first..."
+          # Extract host and port for testing
+          HOST=$(echo '${{ secrets.DATABASE_CONNECTION_STRING }}' | grep -o 'Host=[^;]*' | cut -d'=' -f2)
+          PORT=$(echo '${{ secrets.DATABASE_CONNECTION_STRING }}' | grep -o 'Port=[^;]*' | cut -d'=' -f2)
+          echo "Testing connection to $HOST:$PORT"
+          
+          # Test connection with retry
+          for i in {1..3}; do
+            echo "Connection attempt $i..."
+            timeout 30 bash -c "echo > /dev/tcp/$HOST/$PORT" && echo "✅ Connection successful" && break || echo "❌ Connection attempt $i failed"
+            sleep 5
+          done
+          
+          echo "Running database migration with retry logic..."
+          # Run migration with retry
+          for i in {1..3}; do
+            echo "Migration attempt $i..."
+            if dotnet ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --verbose --connection "${{ secrets.DATABASE_CONNECTION_STRING }}" --timeout 60; then
+              echo "✅ Migration successful"
+              break
+            else
+              echo "❌ Migration attempt $i failed"
+              if [ $i -lt 3 ]; then
+                echo "Waiting 10 seconds before retry..."
+                sleep 10
+              fi
+            fi
+          done
         env:
           ConnectionStrings__DefaultConnection: ${{ secrets.DATABASE_CONNECTION_STRING }}
           ASPNETCORE_ENVIRONMENT: Production
