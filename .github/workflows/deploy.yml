@@ -397,6 +397,17 @@ jobs:
             sudo systemctl restart mydrreferral-api.service
             sudo systemctl status mydrreferral-api.service
             
+            # Wait a moment for service to start
+            sleep 5
+            
+            # Check if API is listening on port 5000
+            echo "🔍 Checking if API is listening on port 5000..."
+            netstat -tlnp | grep :5000 || echo "Port 5000 not listening"
+            
+            # Check API service logs
+            echo "🔍 Checking API service logs..."
+            sudo journalctl -u mydrreferral-api.service --no-pager -n 20
+            
             # Show final status
             echo "🔍 Final service status:"
             sudo systemctl status nginx
