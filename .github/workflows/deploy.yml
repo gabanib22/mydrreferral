@@ -325,17 +325,22 @@ jobs:
             # Find the correct API directory
             API_DIR=$(find /var/www/mydrreferral/Api/ -name "MyDrReferral.Api*" -type d | head -1)
             
-            # If no subdirectory found, check if .dll files are directly in Api/
+            # If no subdirectory found, check if .dll files are directly in Api/ or nested Api/Api/
             if [ -z "$API_DIR" ]; then
               if [ -f "/var/www/mydrreferral/Api/MyDrReferral.Api.dll" ]; then
                 API_DIR="/var/www/mydrreferral/Api"
                 echo "Found API files directly in Api/ directory"
+              elif [ -f "/var/www/mydrreferral/Api/Api/MyDrReferral.Api.dll" ]; then
+                API_DIR="/var/www/mydrreferral/Api/Api"
+                echo "Found API files in nested Api/Api/ directory"
               else
                 echo "❌ MyDrReferral.Api directory or .dll file not found!"
                 echo "Available directories:"
                 find /var/www/mydrreferral/Api/ -type d
                 echo "Available files:"
                 ls -la /var/www/mydrreferral/Api/ | head -20
+                echo "Checking nested Api/ directory:"
+                ls -la /var/www/mydrreferral/Api/Api/ | head -20 2>/dev/null || echo "No nested Api/ directory found"
                 exit 1
               fi
             else
