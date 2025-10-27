@@ -415,15 +415,37 @@ jobs:
       - name: Wait for API to be ready
         run: |
           sleep 30
+          echo "🔍 Starting API health check..."
+          echo "Testing API at: http://${{ secrets.EC2_HOST }}/api/health"
+          
           for i in {1..10}; do
-            if curl -f http://${{ secrets.EC2_HOST }}/api/health; then
-              echo "API is healthy!"
+            echo "Attempt $i: Testing API health..."
+            if curl -f -m 10 http://${{ secrets.EC2_HOST }}/api/health; then
+              echo "✅ API is healthy!"
               exit 0
+            else
+              echo "❌ API not ready yet, waiting..."
+              sleep 10
             fi
-            echo "Attempt $i: API not ready yet, waiting..."
-            sleep 10
           done
-          echo "API health check failed!"
+          
+          echo "❌ API health check failed after 10 attempts!"
+          echo "🔍 Debugging information:"
+          echo "EC2 Host: ${{ secrets.EC2_HOST }}"
+          echo "Testing basic connectivity..."
+          ping -c 3 ${{ secrets.EC2_HOST }} || echo "Ping failed"
+          echo "Testing port 80..."
+          telnet ${{ secrets.EC2_HOST }} 80 || echo "Port 80 not accessible"
+          echo ""
+          echo "Please check:"
+          echo "1. EC2 instance is running"
+          echo "2. Security group allows port 80"
+          echo "3. API service is running on EC2"
+          echo "4. Nginx is configured properly"
+          echo ""
+          echo "SSH into EC2 and run:"
+          echo "sudo systemctl status mydrreferral-api.service"
+          echo "sudo journalctl -u mydrreferral-api.service -f"
           exit 1
 
       - name: Test API endpoints
