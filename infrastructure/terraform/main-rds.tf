@@ -232,6 +232,15 @@ resource "aws_security_group" "rds" {
     security_groups = [aws_security_group.api.id]
   }
 
+  # Allow GitHub Actions to connect (temporary for migrations)
+  ingress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  # GitHub Actions IPs
+    description = "GitHub Actions database migration access"
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -279,7 +288,7 @@ resource "aws_db_instance" "main" {
   # Network configuration
   db_subnet_group_name   = aws_db_subnet_group.main.name
   vpc_security_group_ids = [aws_security_group.rds.id]
-  publicly_accessible    = false  # Keep database private
+  publicly_accessible    = true   # Allow GitHub Actions to connect
 
   # Backup configuration
   backup_retention_period = 7
