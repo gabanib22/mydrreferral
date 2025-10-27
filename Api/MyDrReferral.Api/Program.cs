@@ -189,6 +189,41 @@ app.Use(async (context, next) =>
     await next();
 });
 
+// Add comprehensive exception handling middleware
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ EXCEPTION CAUGHT:");
+        Console.WriteLine($"Exception Type: {ex.GetType().Name}");
+        Console.WriteLine($"Exception Message: {ex.Message}");
+        Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+        Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
+        Console.WriteLine($"Request Path: {context.Request.Path}");
+        Console.WriteLine($"Request Method: {context.Request.Method}");
+        Console.WriteLine($"Request Headers: {string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}={h.Value}"))}");
+        
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        
+        var errorResponse = new
+        {
+            error = "Internal Server Error",
+            message = ex.Message,
+            details = ex.ToString(),
+            path = context.Request.Path,
+            method = context.Request.Method,
+            timestamp = DateTime.UtcNow
+        };
+        
+        await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(errorResponse));
+    }
+});
+
 app.UseHttpsRedirection();
 
 // Authentication and Authorization must be in this order
