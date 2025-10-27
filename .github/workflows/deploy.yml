@@ -467,7 +467,7 @@ jobs:
           echo "Checking EF tools:"
           dotnet ef --version
           echo "Setting up environment variables..."
-          export ConnectionStrings__DefaultConnection="${{ secrets.DATABASE_CONNECTION_STRING }}"
+          export ConnectionStrings__DefaultConnection="Host=mydrreferral-db.c9og0uw2ieyc.ap-south-1.rds.amazonaws.com;Port=5432;Database=MyDrReferralDB;Username=postgres;Password=MyDrReferral123;"
           echo "Connection string set (first 50 chars): ${ConnectionStrings__DefaultConnection:0:50}..."
           echo "Environment variables:"
           env | grep -i connection
@@ -486,8 +486,8 @@ jobs:
           
           echo "Testing database connection first..."
           # Extract host and port for testing
-          HOST=$(echo '${{ secrets.DATABASE_CONNECTION_STRING }}' | grep -o 'Host=[^;]*' | cut -d'=' -f2)
-          PORT=$(echo '${{ secrets.DATABASE_CONNECTION_STRING }}' | grep -o 'Port=[^;]*' | cut -d'=' -f2)
+          HOST=$(echo "$ConnectionStrings__DefaultConnection" | grep -o 'Host=[^;]*' | cut -d'=' -f2)
+          PORT=$(echo "$ConnectionStrings__DefaultConnection" | grep -o 'Port=[^;]*' | cut -d'=' -f2)
           echo "Testing connection to $HOST:$PORT"
           
           # Test connection with retry
