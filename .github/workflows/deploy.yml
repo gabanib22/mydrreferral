@@ -350,7 +350,7 @@ jobs:
             
             # Install and configure Nginx
             echo "🔧 Installing and configuring Nginx..."
-            sudo yum install -y nginx
+            sudo amazon-linux-extras install -y nginx1
             
             # Verify Nginx installation
             if command -v nginx &> /dev/null; then
