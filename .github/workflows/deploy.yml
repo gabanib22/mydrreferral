@@ -383,10 +383,18 @@ jobs:
           find . -name "*.csproj" -type f
           echo "Checking EF tools:"
           dotnet ef --version
+          echo "Setting up environment variables..."
+          export ConnectionStrings__DefaultConnection="${{ secrets.DATABASE_CONNECTION_STRING }}"
+          echo "Connection string set (first 50 chars): ${ConnectionStrings__DefaultConnection:0:50}..."
+          echo "Environment variables:"
+          env | grep -i connection
+          echo "Testing connection string format..."
+          echo "Expected format: Host=...;Database=...;Username=...;Password=..."
           echo "Running database migration..."
-          dotnet ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --verbose
+          dotnet ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --verbose --connection "${{ secrets.DATABASE_CONNECTION_STRING }}"
         env:
           ConnectionStrings__DefaultConnection: ${{ secrets.DATABASE_CONNECTION_STRING }}
+          ASPNETCORE_ENVIRONMENT: Production
 
   # Health Check
   health-check:
