@@ -407,6 +407,12 @@ jobs:
             echo "✅ Nginx configured and started"
             
             # Restart the API service
+            # Fix DNS resolution for RDS
+            echo "🔧 Fixing DNS resolution for RDS..."
+            echo "Testing DNS resolution..."
+            nslookup mydrreferral-db.c9og0uw2ieyc.ap-south-1.rds.amazonaws.com || echo "DNS lookup failed"
+            ping -c 2 mydrreferral-db.c9og0uw2ieyc.ap-south-1.rds.amazonaws.com || echo "Ping failed"
+            
             echo "Restarting API service..."
             sudo systemctl daemon-reload
             sudo systemctl restart mydrreferral-api.service
