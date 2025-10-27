@@ -413,6 +413,10 @@ jobs:
             nslookup mydrreferral-db.c9og0uw2ieyc.ap-south-1.rds.amazonaws.com || echo "DNS lookup failed"
             ping -c 2 mydrreferral-db.c9og0uw2ieyc.ap-south-1.rds.amazonaws.com || echo "Ping failed"
             
+            # Add RDS IP to hosts file as backup
+            echo "3.7.115.75 mydrreferral-db.c9og0uw2ieyc.ap-south-1.rds.amazonaws.com" | sudo tee -a /etc/hosts
+            echo "Added RDS IP to hosts file"
+            
             echo "Restarting API service..."
             sudo systemctl daemon-reload
             sudo systemctl restart mydrreferral-api.service
@@ -473,7 +477,7 @@ jobs:
           echo "Checking EF tools:"
           dotnet ef --version
           echo "Setting up environment variables..."
-          export ConnectionStrings__DefaultConnection="Host=mydrreferral-db.c9og0uw2ieyc.ap-south-1.rds.amazonaws.com;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
+          export ConnectionStrings__DefaultConnection="Host=3.7.115.75;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
           echo "Connection string set (first 50 chars): ${ConnectionStrings__DefaultConnection:0:50}..."
           echo "Environment variables:"
           env | grep -i connection

@@ -83,7 +83,7 @@ ls -la
 
 # Set environment variables
 export ASPNETCORE_ENVIRONMENT=Production
-export ASPNETCORE_URLS=http://+:80
+export ASPNETCORE_URLS=http://+:5000
 export ConnectionStrings__DefaultConnection="Host=${db_host};Database=${db_name};Username=${db_username};Password=${db_password};Port=5432"
 
 # Start the API
@@ -100,7 +100,7 @@ server {
     server_name _;
 
     location /api/ {
-        proxy_pass http://localhost:80;
+        proxy_pass http://localhost:5000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection keep-alive;
@@ -112,7 +112,11 @@ server {
     }
 
     location / {
-        return 404;
+        proxy_pass http://localhost:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 EOF

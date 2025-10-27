@@ -1,45 +1,19 @@
 #!/bin/bash
 
-# MyDrReferral API Server Setup Script - Free Tier Version
-# This script sets up the .NET API on EC2 instance with local PostgreSQL
+# Simple MyDrReferral API Setup Script
+echo "Starting MyDrReferral API setup..."
 
 # Update system
 yum update -y
 
-# Install .NET 8 Runtime and SDK
+# Install .NET 8 Runtime
 echo "Installing .NET 8..."
 rpm -Uvh https://packages.microsoft.com/config/centos/7/packages-microsoft-prod.rpm
-yum install -y dotnet-runtime-8.0 dotnet-sdk-8.0
-
-# Verify installation
-echo "Verifying .NET installation..."
-dotnet --version
-echo "✅ .NET installation completed"
+yum install -y dotnet-runtime-8.0
 
 # Install Nginx
+echo "Installing Nginx..."
 yum install -y nginx
-
-# Install Git
-yum install -y git
-
-# Install PostgreSQL 15 (Free Tier - local database)
-yum install -y postgresql15-server postgresql15
-
-# Initialize PostgreSQL database
-postgresql-setup --initdb
-
-# Start and enable PostgreSQL
-systemctl start postgresql
-systemctl enable postgresql
-
-# Create database and user
-sudo -u postgres psql << EOF
-CREATE DATABASE mydrreferral;
-CREATE USER mydrreferral WITH PASSWORD '${db_password}';
-GRANT ALL PRIVILEGES ON DATABASE mydrreferral TO mydrreferral;
-ALTER USER mydrreferral CREATEDB;
-\q
-EOF
 
 # Create application directory
 mkdir -p /var/www/mydrreferral
@@ -48,74 +22,119 @@ cd /var/www/mydrreferral
 # Create a simple startup script
 cat > /var/www/mydrreferral/start-api.sh << 'EOF'
 #!/bin/bash
-echo "Starting MyDrReferral API..."
-echo "Current directory: $(pwd)"
+echo "Starting API..."
 
 # Find .NET installation
 DOTNET_CMD=""
 if command -v dotnet &> /dev/null; then
   DOTNET_CMD="dotnet"
-  echo "✅ .NET found in PATH"
 elif [ -f "/usr/bin/dotnet" ]; then
   DOTNET_CMD="/usr/bin/dotnet"
-  echo "✅ .NET found at /usr/bin/dotnet"
+elif [ -f "/root/.dotnet/dotnet" ]; then
+  DOTNET_CMD="/root/.dotnet/dotnet"
 else
   echo "❌ .NET not found!"
   exit 1
 fi
 
-# Verify .NET is working
-echo "Testing .NET installation..."
-$DOTNET_CMD --version
-
-# Find the correct API directory
-API_DIR=$(find /var/www/mydrreferral/Api/ -name "MyDrReferral.Api*" -type d | head -1)
-echo "Found API directory: $API_DIR"
-
-if [ -z "$API_DIR" ]; then
-  echo "❌ MyDrReferral.Api directory not found!"
-  echo "Available directories:"
-  find /var/www/mydrreferral/Api/ -type d
-  exit 1
-fi
-
-cd "$API_DIR"
-echo "Changed to: $(pwd)"
-echo "Files in API directory:"
-ls -la
+echo "Using .NET: $DOTNET_CMD"
 
 # Set environment variables
 export ASPNETCORE_ENVIRONMENT=Production
-export ASPNETCORE_URLS=http://+:80
-export ConnectionStrings__DefaultConnection="Host=localhost;Database=mydrreferral;Username=mydrreferral;Password=${db_password}"
+export ASPNETCORE_URLS=http://+:5000
 
-# Start the API
-echo "Starting API with: $DOTNET_CMD MyDrReferral.Api.dll"
-$DOTNET_CMD MyDrReferral.Api.dll
+# Create a simple API directory structure
+mkdir -p /var/www/mydrreferral/Api/MyDrReferral.Api
+cd /var/www/mydrreferral/Api/MyDrReferral.Api
+
+# Create a simple Program.cs for testing
+cat > Program.cs << 'PROGRAM_EOF'
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddControllers();
+
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+// Add health check endpoint
+app.MapGet("/api/health", () => new { status = "healthy", timestamp = DateTime.UtcNow });
+
+app.Run();
+PROGRAM_EOF
+
+# Create a simple project file
+cat > MyDrReferral.Api.csproj << 'PROJECT_EOF'
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>
+PROJECT_EOF
+
+# Create a simple controller
+mkdir -p Controllers
+cat > Controllers/HealthController.cs << 'CONTROLLER_EOF'
+using Microsoft.AspNetCore.Mvc;
+
+namespace MyDrReferral.Api.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class HealthController : ControllerBase
+{
+    [HttpGet]
+    public IActionResult Get()
+    {
+        return Ok(new { status = "healthy", timestamp = DateTime.UtcNow });
+    }
+}
+CONTROLLER_EOF
+
+echo "Starting API with: $DOTNET_CMD run"
+$DOTNET_CMD run
 EOF
 
 chmod +x /var/www/mydrreferral/start-api.sh
 
 # Configure Nginx
+echo "Configuring Nginx..."
 cat > /etc/nginx/conf.d/mydrreferral.conf << 'EOF'
 server {
     listen 80;
     server_name _;
-
-    location /api/ {
+    
+    location / {
         proxy_pass http://localhost:5000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection keep-alive;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    location / {
-        return 404;
     }
 }
 EOF
@@ -128,11 +147,11 @@ systemctl enable nginx
 cat > /etc/systemd/system/mydrreferral-api.service << 'EOF'
 [Unit]
 Description=MyDrReferral API
-After=network.target postgresql.service
+After=network.target
 
 [Service]
 Type=simple
-User=ec2-user
+User=root
 WorkingDirectory=/var/www/mydrreferral
 ExecStart=/var/www/mydrreferral/start-api.sh
 Restart=always
@@ -146,87 +165,10 @@ EOF
 # Reload systemd and enable service
 systemctl daemon-reload
 systemctl enable mydrreferral-api.service
-
-# Create a simple health check endpoint
-cat > /var/www/mydrreferral/health-check.html << 'EOF'
-<!DOCTYPE html>
-<html>
-<head>
-    <title>MyDrReferral API Health Check</title>
-</head>
-<body>
-    <h1>MyDrReferral API is running!</h1>
-    <p>Status: Healthy</p>
-    <p>Timestamp: $(date)</p>
-</body>
-</html>
-EOF
-
-# Set up log rotation
-cat > /etc/logrotate.d/mydrreferral << 'EOF'
-/var/www/mydrreferral/logs/*.log {
-    daily
-    missingok
-    rotate 7
-    compress
-    delaycompress
-    notifempty
-    create 644 ec2-user ec2-user
-}
-EOF
-
-# Create logs directory
-mkdir -p /var/www/mydrreferral/logs
-chown -R ec2-user:ec2-user /var/www/mydrreferral
-
-# Install CloudWatch agent for monitoring (Free Tier: 10 custom metrics)
-yum install -y amazon-cloudwatch-agent
-
-# Create CloudWatch agent configuration
-cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'EOF'
-{
-    "logs": {
-        "logs_collected": {
-            "files": {
-                "collect_list": [
-                    {
-                        "file_path": "/var/www/mydrreferral/logs/*.log",
-                        "log_group_name": "/aws/ec2/mydrreferral/api",
-                        "log_stream_name": "{instance_id}"
-                    }
-                ]
-            }
-        }
-    },
-    "metrics": {
-        "namespace": "MyDrReferral/API",
-        "metrics_collected": {
-            "cpu": {
-                "measurement": ["cpu_usage_idle", "cpu_usage_iowait", "cpu_usage_user", "cpu_usage_system"],
-                "metrics_collection_interval": 60
-            },
-            "disk": {
-                "measurement": ["used_percent"],
-                "metrics_collection_interval": 60,
-                "resources": ["*"]
-            },
-            "mem": {
-                "measurement": ["mem_used_percent"],
-                "metrics_collection_interval": 60
-            }
-        }
-    }
-}
-EOF
-
-# Start CloudWatch agent
-/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-    -a fetch-config \
-    -m ec2 \
-    -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
-    -s
+systemctl start mydrreferral-api.service
 
 echo "MyDrReferral API setup completed!"
-echo "Database: localhost (PostgreSQL)"
-echo "Database name: mydrreferral"
-echo "Database username: mydrreferral"
+echo "Nginx status:"
+systemctl status nginx
+echo "API service status:"
+systemctl status mydrreferral-api.service
