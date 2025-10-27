@@ -6,9 +6,15 @@
 # Update system
 yum update -y
 
-# Install .NET 8 SDK
+# Install .NET 8 Runtime and SDK
+echo "Installing .NET 8..."
 rpm -Uvh https://packages.microsoft.com/config/centos/7/packages-microsoft-prod.rpm
-yum install -y dotnet-sdk-8.0
+yum install -y dotnet-runtime-8.0 dotnet-sdk-8.0
+
+# Verify installation
+echo "Verifying .NET installation..."
+dotnet --version
+echo "✅ .NET installation completed"
 
 # Install Nginx
 yum install -y nginx
@@ -42,7 +48,41 @@ cd /var/www/mydrreferral
 # Create a simple startup script
 cat > /var/www/mydrreferral/start-api.sh << 'EOF'
 #!/bin/bash
-cd /var/www/mydrreferral/Api/MyDrReferral.Api
+echo "Starting MyDrReferral API..."
+echo "Current directory: $(pwd)"
+
+# Find .NET installation
+DOTNET_CMD=""
+if command -v dotnet &> /dev/null; then
+  DOTNET_CMD="dotnet"
+  echo "✅ .NET found in PATH"
+elif [ -f "/usr/bin/dotnet" ]; then
+  DOTNET_CMD="/usr/bin/dotnet"
+  echo "✅ .NET found at /usr/bin/dotnet"
+else
+  echo "❌ .NET not found!"
+  exit 1
+fi
+
+# Verify .NET is working
+echo "Testing .NET installation..."
+$DOTNET_CMD --version
+
+# Find the correct API directory
+API_DIR=$(find /var/www/mydrreferral/Api/ -name "MyDrReferral.Api*" -type d | head -1)
+echo "Found API directory: $API_DIR"
+
+if [ -z "$API_DIR" ]; then
+  echo "❌ MyDrReferral.Api directory not found!"
+  echo "Available directories:"
+  find /var/www/mydrreferral/Api/ -type d
+  exit 1
+fi
+
+cd "$API_DIR"
+echo "Changed to: $(pwd)"
+echo "Files in API directory:"
+ls -la
 
 # Set environment variables
 export ASPNETCORE_ENVIRONMENT=Production
@@ -50,7 +90,8 @@ export ASPNETCORE_URLS=http://+:80
 export ConnectionStrings__DefaultConnection="Host=localhost;Database=mydrreferral;Username=mydrreferral;Password=${db_password}"
 
 # Start the API
-dotnet run --project MyDrReferral.Api.csproj
+echo "Starting API with: $DOTNET_CMD MyDrReferral.Api.dll"
+$DOTNET_CMD MyDrReferral.Api.dll
 EOF
 
 chmod +x /var/www/mydrreferral/start-api.sh

@@ -234,31 +234,45 @@ jobs:
             else
               echo "❌ .NET not found! Installing .NET 8 Runtime..."
               
-              # Install wget if not available
-              sudo yum install -y wget
+              # Install required packages
+              sudo yum update -y
+              sudo yum install -y wget curl
               
-              # Use the official Microsoft installation script
-              echo "Installing .NET 8 using official script..."
-              curl -sSL https://dot.net/v1/dotnet-install.sh | sudo bash /dev/stdin --channel 8.0
-              
-              # Add dotnet to PATH
-              echo 'export DOTNET_ROOT=$HOME/.dotnet' >> ~/.bashrc
-              echo 'export PATH=$PATH:$HOME/.dotnet' >> ~/.bashrc
-              export DOTNET_ROOT=$HOME/.dotnet
-              export PATH=$PATH:$HOME/.dotnet
-              
-              # Create symlink for system-wide access
-              sudo ln -sf $HOME/.dotnet/dotnet /usr/bin/dotnet
-              
-              echo "✅ .NET 8 manually installed"
+              # Install .NET 8 using Microsoft's official repository
+              echo "Installing .NET 8 using Microsoft repository..."
+              sudo rpm -Uvh https://packages.microsoft.com/config/centos/7/packages-microsoft-prod.rpm
+              sudo yum install -y dotnet-runtime-8.0
               
               # Verify installation
-              if [ -f "/root/.dotnet/dotnet" ]; then
+              if command -v dotnet &> /dev/null; then
                 echo "✅ .NET installation completed:"
-                /root/.dotnet/dotnet --version
+                dotnet --version
+              elif [ -f "/usr/bin/dotnet" ]; then
+                echo "✅ .NET installation completed:"
+                /usr/bin/dotnet --version
               else
-                echo "❌ .NET installation failed!"
-                exit 1
+                echo "❌ .NET installation failed! Trying alternative method..."
+                
+                # Alternative installation method using the install script
+                curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 8.0
+                
+                # Add to PATH for current session
+                export DOTNET_ROOT=$HOME/.dotnet
+                export PATH=$PATH:$HOME/.dotnet
+                
+                # Create symlink for system-wide access
+                sudo ln -sf $HOME/.dotnet/dotnet /usr/bin/dotnet
+                
+                # Verify alternative installation
+                if [ -f "$HOME/.dotnet/dotnet" ]; then
+                  echo "✅ .NET installation completed via script:"
+                  $HOME/.dotnet/dotnet --version
+                else
+                  echo "❌ All .NET installation methods failed!"
+                  echo "Available files in home directory:"
+                  ls -la $HOME/
+                  exit 1
+                fi
               fi
             fi
             
@@ -271,21 +285,32 @@ jobs:
             echo "Available files:"
             ls -la
             
-            # Set up .NET environment
-            export DOTNET_ROOT=/root/.dotnet
-            export PATH=$PATH:/root/.dotnet
-            
-            # Verify .NET is available
-            echo "Checking .NET installation..."
-            if command -v /root/.dotnet/dotnet &> /dev/null; then
+            # Find .NET installation
+            DOTNET_CMD=""
+            if command -v dotnet &> /dev/null; then
+              DOTNET_CMD="dotnet"
+              echo "✅ .NET found in PATH"
+            elif [ -f "/usr/bin/dotnet" ]; then
+              DOTNET_CMD="/usr/bin/dotnet"
+              echo "✅ .NET found at /usr/bin/dotnet"
+            elif [ -f "/root/.dotnet/dotnet" ]; then
+              DOTNET_CMD="/root/.dotnet/dotnet"
               echo "✅ .NET found at /root/.dotnet/dotnet"
-              /root/.dotnet/dotnet --version
+            elif [ -f "$HOME/.dotnet/dotnet" ]; then
+              DOTNET_CMD="$HOME/.dotnet/dotnet"
+              echo "✅ .NET found at $HOME/.dotnet/dotnet"
             else
-              echo "❌ .NET not found at /root/.dotnet/dotnet"
-              echo "Available files in /root/.dotnet:"
-              ls -la /root/.dotnet/
+              echo "❌ .NET not found anywhere!"
+              echo "Searching for dotnet in common locations..."
+              find /usr -name "dotnet" -type f 2>/dev/null | head -5
+              find /opt -name "dotnet" -type f 2>/dev/null | head -5
+              find $HOME -name "dotnet" -type f 2>/dev/null | head -5
               exit 1
             fi
+            
+            # Verify .NET is working
+            echo "Testing .NET installation..."
+            $DOTNET_CMD --version
             
             # Find the correct API directory
             API_DIR=$(find /var/www/mydrreferral/Api/ -name "MyDrReferral.Api*" -type d | head -1)
@@ -308,8 +333,8 @@ jobs:
             export ASPNETCORE_URLS=http://+:80
             
             # Start the API
-            echo "Starting API with: /root/.dotnet/dotnet MyDrReferral.Api.dll"
-            /root/.dotnet/dotnet MyDrReferral.Api.dll
+            echo "Starting API with: $DOTNET_CMD MyDrReferral.Api.dll"
+            $DOTNET_CMD MyDrReferral.Api.dll
             EOF
             
             sudo chmod +x /var/www/mydrreferral/start-api.sh
