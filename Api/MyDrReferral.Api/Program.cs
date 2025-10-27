@@ -31,9 +31,13 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins", policy =>
     {
-        policy.WithOrigins("http://localhost:3000") // Frontend URL
+        policy.WithOrigins(
+                "http://localhost:3000", // Local development
+                "http://mydrreferral-frontend-1eqovfla.s3-website.ap-south-1.amazonaws.com" // Production S3 frontend
+              )
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
