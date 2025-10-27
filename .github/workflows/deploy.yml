@@ -395,8 +395,8 @@ jobs:
           if [[ "$ConnectionStrings__DefaultConnection" == *"Host=localhost"* ]] || [[ "$ConnectionStrings__DefaultConnection" == *"Host=127.0.0.1"* ]]; then
             echo "⚠️  WARNING: Connection string points to localhost!"
             echo "This will fail in GitHub Actions as there's no local PostgreSQL."
-            echo "Please update your DATABASE_CONNECTION_STRING secret to point to your actual database."
-            echo "Example: Host=your-db-host.amazonaws.com;Database=mydrreferral;Username=mydrreferral;Password=your-password"
+            echo "Please update your DATABASE_CONNECTION_STRING secret to point to your RDS database."
+            echo "Example: Host=your-rds-endpoint.region.rds.amazonaws.com;Database=mydrreferral;Username=mydrreferral;Password=your-password"
             echo "Skipping migration for now..."
             exit 0
           fi
