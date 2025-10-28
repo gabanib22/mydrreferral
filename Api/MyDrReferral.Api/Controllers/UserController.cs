@@ -152,14 +152,9 @@ namespace MyDrReferral.Api.Controllers
             }
             catch (Exception ex)
             {
-                await _mediator.Send(new ErrorRequest
-                {
-                    ErrorLogModel = new ErrorLogModel(ex)
-                    {
-                        Subject = Common.GetErrorSubject(),
-                        Description = $"Login ### Data :: {JsonSerializer.Serialize(model)} ### Exception ### {ex.Message}",
-                    }
-                });
+                // Temporarily disable error logging until migrations are complete
+                Console.WriteLine($"Login Error: {ex.Message}");
+                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
 
                 return BadRequest(new ResponseModel
                 {
