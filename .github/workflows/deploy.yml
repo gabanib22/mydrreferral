@@ -413,9 +413,16 @@ jobs:
             nslookup mydrreferral-db.c9og0uw2ieyc.ap-south-1.rds.amazonaws.com || echo "DNS lookup failed"
             ping -c 2 mydrreferral-db.c9og0uw2ieyc.ap-south-1.rds.amazonaws.com || echo "Ping failed"
             
-            # Add RDS IP to hosts file as backup
-            echo "3.7.115.75 mydrreferral-db.c9og0uw2ieyc.ap-south-1.rds.amazonaws.com" | sudo tee -a /etc/hosts
-            echo "Added RDS IP to hosts file"
+            # Test RDS connectivity
+            echo "🔧 Testing RDS connectivity..."
+            echo "Testing connection to RDS IP: 3.7.115.75:5432"
+            timeout 10 bash -c "</dev/tcp/3.7.115.75/5432" && echo "✅ RDS connection successful" || echo "❌ RDS connection failed"
+            
+            # Test with telnet if available
+            if command -v telnet &> /dev/null; then
+              echo "Testing with telnet..."
+              timeout 5 telnet 3.7.115.75 5432 || echo "Telnet test failed"
+            fi
             
             echo "Restarting API service..."
             sudo systemctl daemon-reload
