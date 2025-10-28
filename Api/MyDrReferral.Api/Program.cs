@@ -38,10 +38,10 @@ builder.Services.AddCors(options =>
 });
 
 #region Dependency Injections
-// Force RDS IP connection string override - HARD CODE THE IP
-var connectionString = "Host=3.7.115.75;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;";
+// Force RDS IP connection string override - USE NEW PUBLIC SUBNET RDS
+var connectionString = "Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;";
 
-Console.WriteLine($"🔧 FORCING RDS IP connection string: {connectionString.Substring(0, Math.Min(50, connectionString.Length))}...");
+Console.WriteLine($"🔧 USING NEW PUBLIC SUBNET RDS: {connectionString.Substring(0, Math.Min(50, connectionString.Length))}...");
 
 builder.Services.AddDbContext<MyDrReferralContext>(options =>
 {
