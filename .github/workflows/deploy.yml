@@ -482,19 +482,19 @@ jobs:
             
             # Test migration project files exist
             echo "🔍 Checking migration project files..."
-            if [ -f "MyDrReferral.Data/MyDrReferral.Data.csproj" ]; then
-              echo "✅ Data project found: MyDrReferral.Data/MyDrReferral.Data.csproj"
+            if [ -f "MyDrReferral.Data.csproj" ]; then
+              echo "✅ Data project found: MyDrReferral.Data.csproj"
             else
-              echo "❌ Data project not found: MyDrReferral.Data/MyDrReferral.Data.csproj"
+              echo "❌ Data project not found: MyDrReferral.Data.csproj"
               echo "Available .csproj files:"
               find . -name "*.csproj" -type f
               exit 1
             fi
             
-            if [ -f "MyDrReferral.Api/MyDrReferral.Api.csproj" ]; then
-              echo "✅ API project found: MyDrReferral.Api/MyDrReferral.Api.csproj"
+            if [ -f "MyDrReferral.Api.csproj" ]; then
+              echo "✅ API project found: MyDrReferral.Api.csproj"
             else
-              echo "❌ API project not found: MyDrReferral.Api/MyDrReferral.Api.csproj"
+              echo "❌ API project not found: MyDrReferral.Api.csproj"
               echo "Available .csproj files:"
               find . -name "*.csproj" -type f
               exit 1
@@ -502,10 +502,10 @@ jobs:
             
             # Run migrations
             echo "Running database update..."
-            echo "Migration command: $DOTNET_CMD ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --connection \"$ConnectionStrings__DefaultConnection\" --verbose"
+            echo "Migration command: $DOTNET_CMD ef database update --project MyDrReferral.Data.csproj --startup-project MyDrReferral.Api.csproj --connection \"$ConnectionStrings__DefaultConnection\" --verbose"
             
             # Run migration with direct error output
-            if $DOTNET_CMD ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --connection "$ConnectionStrings__DefaultConnection" --verbose; then
+            if $DOTNET_CMD ef database update --project MyDrReferral.Data.csproj --startup-project MyDrReferral.Api.csproj --connection "$ConnectionStrings__DefaultConnection" --verbose; then
               echo "✅ Database migrations completed successfully"
             else
               echo "❌ Database migrations failed with exit code $?"
