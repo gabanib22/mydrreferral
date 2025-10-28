@@ -437,15 +437,27 @@ jobs:
             
             # Run migrations
             echo "Running database update..."
-            if $DOTNET_CMD ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --connection "$ConnectionStrings__DefaultConnection" --verbose; then
+            echo "Migration command: $DOTNET_CMD ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --connection \"$ConnectionStrings__DefaultConnection\" --verbose"
+            
+            # Capture migration output
+            MIGRATION_OUTPUT=$($DOTNET_CMD ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --connection "$ConnectionStrings__DefaultConnection" --verbose 2>&1)
+            MIGRATION_EXIT_CODE=$?
+            
+            echo "Migration output:"
+            echo "$MIGRATION_OUTPUT"
+            echo "Migration exit code: $MIGRATION_EXIT_CODE"
+            
+            if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
               echo "✅ Database migrations completed successfully"
             else
-              echo "❌ Database migrations failed with exit code $?"
+              echo "❌ Database migrations failed with exit code $MIGRATION_EXIT_CODE"
               echo "Migration error details:"
               echo "Connection string: $ConnectionStrings__DefaultConnection"
               echo "API directory: $(pwd)"
               echo "Available files:"
               ls -la
+              echo "Migration output:"
+              echo "$MIGRATION_OUTPUT"
               exit 1
             fi
             
