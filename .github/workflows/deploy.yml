@@ -337,6 +337,22 @@ jobs:
               fi
             fi
             
+            # Ensure .NET environment variables are set
+            echo "🔧 Setting up .NET environment..."
+            if [ -d "$HOME/.dotnet" ]; then
+              export DOTNET_ROOT=$HOME/.dotnet
+              export PATH=$PATH:$HOME/.dotnet
+              echo "✅ Set DOTNET_ROOT to $HOME/.dotnet"
+            elif [ -d "/usr/share/dotnet" ]; then
+              export DOTNET_ROOT=/usr/share/dotnet
+              export PATH=$PATH:/usr/share/dotnet
+              echo "✅ Set DOTNET_ROOT to /usr/share/dotnet"
+            fi
+            
+            # Verify .NET is working
+            echo "Testing .NET installation..."
+            dotnet --version
+            
             # Find .NET installation
             DOTNET_CMD=""
             if command -v dotnet &> /dev/null; then
@@ -408,6 +424,10 @@ jobs:
               $DOTNET_CMD tool install --global dotnet-ef
               export PATH="$PATH:$HOME/.dotnet/tools"
             fi
+            
+            # Ensure EF tools can find .NET runtime
+            echo "🔧 Verifying EF tools can find .NET runtime..."
+            dotnet-ef --version
             
             # Run migrations
             echo "Running database update..."
