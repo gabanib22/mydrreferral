@@ -618,44 +618,35 @@ jobs:
             echo "🔍 Checking if API is listening on port 5000..."
             netstat -tlnp | grep :5000 || echo "Port 5000 not listening"
             
-        # Check API service logs
-        echo "🔍 Checking API service logs..."
-        sudo journalctl -u mydrreferral-api.service --no-pager -n 50
-        
-        # Check if startup log file exists
-        echo "🔍 Checking for startup log file..."
-        if [ -f "/var/log/mydrreferral-startup.log" ]; then
-          echo "✅ Startup log file found, showing last 50 lines:"
-          sudo tail -50 /var/log/mydrreferral-startup.log
-        else
-          echo "❌ Startup log file not found"
-        fi
-        
-        # Check API directory contents
-        echo "🔍 Checking API directory contents..."
-        ls -la /var/www/mydrreferral/Api/Api/ || echo "Api/Api directory not found"
-        
-        # Check if API is actually running
-        echo "🔍 Checking if API process is running..."
-        ps aux | grep -i mydrreferral || echo "No MyDrReferral process found"
-        
-        # Try to manually start the API to see detailed errors
-        echo "🔍 Trying to manually start API to see detailed errors..."
-        cd /var/www/mydrreferral/Api/Api
-        echo "Current directory: $(pwd)"
-        echo "Available files:"
-        ls -la
-        echo "Trying to run dotnet MyDrReferral.Api.dll..."
-        timeout 10 dotnet MyDrReferral.Api.dll || echo "Manual API start failed or timed out"
+            # Check API service logs
+            echo "🔍 Checking API service logs..."
+            sudo journalctl -u mydrreferral-api.service --no-pager -n 50
             
-            # Check startup log file for detailed migration errors
-            echo "🔍 Checking startup log file for detailed migration errors..."
+            # Check if startup log file exists
+            echo "🔍 Checking for startup log file..."
             if [ -f "/var/log/mydrreferral-startup.log" ]; then
               echo "✅ Startup log file found, showing last 50 lines:"
               sudo tail -50 /var/log/mydrreferral-startup.log
             else
-              echo "❌ Startup log file not found at /var/log/mydrreferral-startup.log"
+              echo "❌ Startup log file not found"
             fi
+            
+            # Check API directory contents
+            echo "🔍 Checking API directory contents..."
+            ls -la /var/www/mydrreferral/Api/Api/ || echo "Api/Api directory not found"
+            
+            # Check if API is actually running
+            echo "🔍 Checking if API process is running..."
+            ps aux | grep -i mydrreferral || echo "No MyDrReferral process found"
+            
+            # Try to manually start the API to see detailed errors
+            echo "🔍 Trying to manually start API to see detailed errors..."
+            cd /var/www/mydrreferral/Api/Api
+            echo "Current directory: $(pwd)"
+            echo "Available files:"
+            ls -la
+            echo "Trying to run dotnet MyDrReferral.Api.dll..."
+            timeout 10 dotnet MyDrReferral.Api.dll || echo "Manual API start failed or timed out"
             
             # Show final status
             echo "🔍 Final service status:"
