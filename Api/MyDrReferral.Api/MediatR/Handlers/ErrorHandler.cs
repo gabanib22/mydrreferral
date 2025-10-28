@@ -18,7 +18,13 @@ namespace MyDrReferral.Api.MediatR.Handlers
        ErrorRequest request,
        CancellationToken cancellationToken = default)
         {
-            return await _errorLogService.AddErrorLog(request.ErrorLogModel);
+            // Temporarily disable database error logging until migrations are complete
+            Console.WriteLine($"ERROR LOGGED: {request.ErrorLogModel?.Description}");
+            Console.WriteLine($"SUBJECT: {request.ErrorLogModel?.Subject}");
+            Console.WriteLine($"STACK TRACE: {request.ErrorLogModel?.StackTrace}");
+            
+            // Return true to indicate "success" without actually logging to database
+            return await Task.FromResult(true);
         }
     }
 }
