@@ -625,7 +625,7 @@ jobs:
             
             # Check API service logs
             echo "🔍 Checking API service logs..."
-            sudo journalctl -u mydrreferral-api.service --no-pager -n 100
+            sudo journalctl -u mydrreferral-api.service --no-pager -n 200
             
             # Check if startup log file exists
             echo "🔍 Checking for startup log file..."
@@ -643,6 +643,15 @@ jobs:
             # Check if API is actually running
             echo "🔍 Checking if API process is running..."
             ps aux | grep -i mydrreferral || echo "No MyDrReferral process found"
+            
+            # Try to manually test the migration command
+            echo "🔍 Testing migration command manually..."
+            cd /var/www/mydrreferral/Api/Api
+            echo "Current directory: $(pwd)"
+            echo "Testing migration from home directory..."
+            cd $HOME
+            echo "Testing migration command:"
+            timeout 60 dotnet ef database update --project "/var/www/mydrreferral/Api/Api/MyDrReferral.Data.csproj" --startup-project "/var/www/mydrreferral/Api/Api/MyDrReferral.Api.csproj" --connection "Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;" --verbose || echo "Migration test failed"
             
             # Try to manually start the API to see detailed errors
             echo "🔍 Trying to manually start API to see detailed errors..."
