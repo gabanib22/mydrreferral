@@ -38,9 +38,20 @@ builder.Services.AddCors(options =>
 });
 
 #region Dependency Injections
+// Force RDS IP connection string override
+var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") 
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+
+// Override with RDS IP if not already set
+if (connectionString != null && connectionString.Contains("mydrreferral-db.c9og0uw2ieyc.ap-south-1.rds.amazonaws.com"))
+{
+    connectionString = connectionString.Replace("mydrreferral-db.c9og0uw2ieyc.ap-south-1.rds.amazonaws.com", "3.7.115.75");
+    Console.WriteLine($"🔧 Overriding connection string to use RDS IP: {connectionString.Substring(0, Math.Min(50, connectionString.Length))}...");
+}
+
 builder.Services.AddDbContext<MyDrReferralContext>(options =>
 {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), npgsqlOptions =>
+    options.UseNpgsql(connectionString, npgsqlOptions =>
     {
         npgsqlOptions.EnableRetryOnFailure();
     });
