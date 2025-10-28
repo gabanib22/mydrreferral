@@ -356,6 +356,28 @@ jobs:
             export ASPNETCORE_ENVIRONMENT=Production
             export ASPNETCORE_URLS=http://+:5000
             
+            # Run database migrations before starting API
+            echo "🔧 Running database migrations..."
+            export ConnectionStrings__DefaultConnection="Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
+            
+            # Install EF tools if not available
+            if ! command -v dotnet-ef &> /dev/null; then
+              echo "Installing Entity Framework tools..."
+              $DOTNET_CMD tool install --global dotnet-ef
+              export PATH="$PATH:$HOME/.dotnet/tools"
+            fi
+            
+            # Run migrations
+            echo "Running database update..."
+            $DOTNET_CMD ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --connection "$ConnectionStrings__DefaultConnection" --verbose
+            
+            if [ $? -eq 0 ]; then
+              echo "✅ Database migrations completed successfully"
+            else
+              echo "❌ Database migrations failed"
+              exit 1
+            fi
+            
             # Start the API
             echo "Starting API with: $DOTNET_CMD MyDrReferral.Api.dll"
             $DOTNET_CMD MyDrReferral.Api.dll
