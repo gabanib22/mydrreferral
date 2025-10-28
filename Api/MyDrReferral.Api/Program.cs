@@ -42,12 +42,24 @@ builder.Services.AddCors(options =>
 var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection") 
     ?? builder.Configuration.GetConnectionString("DefaultConnection");
 
+Console.WriteLine($"🔍 Original connection string: {connectionString?.Substring(0, Math.Min(100, connectionString.Length ?? 0))}...");
+
 // Override with RDS IP if not already set
 if (connectionString != null && connectionString.Contains("mydrreferral-db.c9og0uw2ieyc.ap-south-1.rds.amazonaws.com"))
 {
     connectionString = connectionString.Replace("mydrreferral-db.c9og0uw2ieyc.ap-south-1.rds.amazonaws.com", "3.7.115.75");
     Console.WriteLine($"🔧 Overriding connection string to use RDS IP: {connectionString.Substring(0, Math.Min(50, connectionString.Length))}...");
 }
+else if (connectionString != null && connectionString.Contains("3.7.115.75"))
+{
+    Console.WriteLine($"✅ Connection string already uses RDS IP: {connectionString.Substring(0, Math.Min(50, connectionString.Length))}...");
+}
+else
+{
+    Console.WriteLine($"❌ Connection string doesn't contain expected hostname or IP: {connectionString?.Substring(0, Math.Min(50, connectionString.Length ?? 0))}...");
+}
+
+Console.WriteLine($"🔍 Final connection string: {connectionString?.Substring(0, Math.Min(100, connectionString.Length ?? 0))}...");
 
 builder.Services.AddDbContext<MyDrReferralContext>(options =>
 {
