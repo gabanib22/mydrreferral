@@ -157,6 +157,28 @@ jobs:
           echo "Migration files:"
           find deployment-package/ -name "*.cs" -path "*/Migrations/*" | head -5
           
+          # Debug: Check if API project file exists before copying
+          echo "Checking source API project file:"
+          if [ -f "MyDrReferral.Api/MyDrReferral.Api.csproj" ]; then
+            echo "✅ API project file found: MyDrReferral.Api/MyDrReferral.Api.csproj"
+            ls -la MyDrReferral.Api/MyDrReferral.Api.csproj
+          else
+            echo "❌ API project file not found: MyDrReferral.Api/MyDrReferral.Api.csproj"
+            echo "Available files in MyDrReferral.Api/:"
+            ls -la MyDrReferral.Api/ || echo "MyDrReferral.Api directory not found"
+          fi
+          
+          # Debug: Check if Data project file exists before copying
+          echo "Checking source Data project file:"
+          if [ -f "MyDrReferral.Data/MyDrReferral.Data.csproj" ]; then
+            echo "✅ Data project file found: MyDrReferral.Data/MyDrReferral.Data.csproj"
+            ls -la MyDrReferral.Data/MyDrReferral.Data.csproj
+          else
+            echo "❌ Data project file not found: MyDrReferral.Data/MyDrReferral.Data.csproj"
+            echo "Available files in MyDrReferral.Data/:"
+            ls -la MyDrReferral.Data/ || echo "MyDrReferral.Data directory not found"
+          fi
+          
           # Create the package
           tar -czf mydrreferral-api.tar.gz -C deployment-package .
           echo "Deployment package created:"
