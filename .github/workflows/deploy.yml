@@ -496,7 +496,7 @@ jobs:
           echo "Checking EF tools:"
           dotnet ef --version
           echo "Setting up environment variables..."
-          export ConnectionStrings__DefaultConnection="Host=3.7.115.75;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
+          export ConnectionStrings__DefaultConnection="Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
           echo "Connection string set (first 50 chars): ${ConnectionStrings__DefaultConnection:0:50}..."
           echo "Environment variables:"
           env | grep -i connection
