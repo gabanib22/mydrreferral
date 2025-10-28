@@ -290,10 +290,16 @@ jobs:
             echo "🔧 Updating startup script with latest fixes..."
             sudo cat > /var/www/mydrreferral/start-api.sh << 'EOF'
             #!/bin/bash
+            set -e  # Exit on any error
+            set -x  # Print commands as they execute
+            
             echo "Starting MyDrReferral API..."
             echo "Current directory: $(pwd)"
             echo "Available files:"
             ls -la
+            
+            # Log all output to a file for debugging
+            exec > >(tee -a /var/log/mydrreferral-startup.log) 2>&1
             
             # Install .NET if not found
             echo "🔧 Checking .NET installation..."
@@ -431,18 +437,28 @@ jobs:
             
             # Run migrations
             echo "Running database update..."
-            $DOTNET_CMD ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --connection "$ConnectionStrings__DefaultConnection" --verbose
-            
-            if [ $? -eq 0 ]; then
+            if $DOTNET_CMD ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --connection "$ConnectionStrings__DefaultConnection" --verbose; then
               echo "✅ Database migrations completed successfully"
             else
-              echo "❌ Database migrations failed"
+              echo "❌ Database migrations failed with exit code $?"
+              echo "Migration error details:"
+              echo "Connection string: $ConnectionStrings__DefaultConnection"
+              echo "API directory: $(pwd)"
+              echo "Available files:"
+              ls -la
               exit 1
             fi
             
             # Start the API
             echo "Starting API with: $DOTNET_CMD MyDrReferral.Api.dll"
-            $DOTNET_CMD MyDrReferral.Api.dll
+            echo "Final environment check:"
+            echo "DOTNET_ROOT: $DOTNET_ROOT"
+            echo "PATH: $PATH"
+            echo "Working directory: $(pwd)"
+            echo "API files:"
+            ls -la *.dll *.json 2>/dev/null || echo "No DLL/JSON files found"
+            
+            exec $DOTNET_CMD MyDrReferral.Api.dll
             EOF
             
             sudo chmod +x /var/www/mydrreferral/start-api.sh
