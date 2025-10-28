@@ -136,7 +136,29 @@ jobs:
           echo "Creating deployment package..."
           echo "Contents of publish directory:"
           ls -la publish/
-          tar -czf mydrreferral-api.tar.gz -C publish .
+          
+          # Create a temporary directory for the deployment package
+          mkdir -p deployment-package
+          
+          # Copy published files
+          cp -r publish/* deployment-package/
+          
+          # Copy project files needed for migrations
+          cp MyDrReferral.Api/MyDrReferral.Api.csproj deployment-package/
+          cp MyDrReferral.Data/MyDrReferral.Data.csproj deployment-package/
+          
+          # Copy migration files
+          cp -r MyDrReferral.Data/Migrations deployment-package/
+          
+          echo "Deployment package contents:"
+          ls -la deployment-package/
+          echo "Project files:"
+          find deployment-package/ -name "*.csproj" -type f
+          echo "Migration files:"
+          find deployment-package/ -name "*.cs" -path "*/Migrations/*" | head -5
+          
+          # Create the package
+          tar -czf mydrreferral-api.tar.gz -C deployment-package .
           echo "Deployment package created:"
           ls -la mydrreferral-api.tar.gz
           echo "Package size: $(du -h mydrreferral-api.tar.gz)"
