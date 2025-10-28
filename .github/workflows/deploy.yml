@@ -620,13 +620,13 @@ jobs:
             
             # Check API service logs
             echo "🔍 Checking API service logs..."
-            sudo journalctl -u mydrreferral-api.service --no-pager -n 50
+            sudo journalctl -u mydrreferral-api.service --no-pager -n 100
             
             # Check if startup log file exists
             echo "🔍 Checking for startup log file..."
             if [ -f "/var/log/mydrreferral-startup.log" ]; then
-              echo "✅ Startup log file found, showing last 50 lines:"
-              sudo tail -50 /var/log/mydrreferral-startup.log
+              echo "✅ Startup log file found, showing last 100 lines:"
+              sudo tail -100 /var/log/mydrreferral-startup.log
             else
               echo "❌ Startup log file not found"
             fi
@@ -645,8 +645,11 @@ jobs:
             echo "Current directory: $(pwd)"
             echo "Available files:"
             ls -la
+            echo "Checking .NET environment:"
+            echo "DOTNET_ROOT: $DOTNET_ROOT"
+            echo "PATH: $PATH"
             echo "Trying to run dotnet MyDrReferral.Api.dll..."
-            timeout 10 dotnet MyDrReferral.Api.dll || echo "Manual API start failed or timed out"
+            timeout 30 dotnet MyDrReferral.Api.dll --verbosity detailed || echo "Manual API start failed or timed out"
             
             # Show final status
             echo "🔍 Final service status:"
