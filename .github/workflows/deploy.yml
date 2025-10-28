@@ -446,8 +446,12 @@ jobs:
             # Install EF tools if not available
             if ! command -v dotnet-ef &> /dev/null; then
               echo "Installing Entity Framework tools..."
-              $DOTNET_CMD tool install --global dotnet-ef
+              # Change to home directory to avoid multiple project files issue
+              cd $HOME
+              $DOTNET_CMD tool install --global dotnet-ef --version 8.0.0
               export PATH="$PATH:$HOME/.dotnet/tools"
+              # Return to API directory
+              cd "$API_DIR"
             fi
             
             # Ensure EF tools can find .NET runtime
