@@ -564,6 +564,15 @@ jobs:
             echo "🔍 Checking API service logs..."
             sudo journalctl -u mydrreferral-api.service --no-pager -n 20
             
+            # Check startup log file for detailed migration errors
+            echo "🔍 Checking startup log file for detailed migration errors..."
+            if [ -f "/var/log/mydrreferral-startup.log" ]; then
+              echo "✅ Startup log file found, showing last 50 lines:"
+              sudo tail -50 /var/log/mydrreferral-startup.log
+            else
+              echo "❌ Startup log file not found at /var/log/mydrreferral-startup.log"
+            fi
+            
             # Show final status
             echo "🔍 Final service status:"
             sudo systemctl status nginx
