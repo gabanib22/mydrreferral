@@ -424,6 +424,18 @@ jobs:
               timeout 5 telnet 3.7.115.75 5432 || echo "Telnet test failed"
             fi
             
+            # Test with nc (netcat) if available
+            if command -v nc &> /dev/null; then
+              echo "Testing with netcat..."
+              timeout 5 nc -zv 3.7.115.75 5432 || echo "Netcat test failed"
+            fi
+            
+            # Test with psql if available
+            if command -v psql &> /dev/null; then
+              echo "Testing with psql..."
+              timeout 10 psql -h 3.7.115.75 -p 5432 -U postgres -d postgres -c "SELECT 1;" || echo "Psql test failed"
+            fi
+            
             echo "Restarting API service..."
             sudo systemctl daemon-reload
             sudo systemctl restart mydrreferral-api.service
