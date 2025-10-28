@@ -295,6 +295,48 @@ jobs:
             echo "Available files:"
             ls -la
             
+            # Install .NET if not found
+            echo "🔧 Checking .NET installation..."
+            if ! command -v dotnet &> /dev/null; then
+              echo "❌ .NET not found! Installing .NET 8 Runtime..."
+              
+              # Install required packages
+              sudo yum update -y
+              sudo yum install -y wget curl
+              
+              # Install .NET 8 using Microsoft's official repository
+              echo "Installing .NET 8 using Microsoft repository..."
+              sudo rpm -Uvh https://packages.microsoft.com/config/centos/7/packages-microsoft-prod.rpm
+              sudo yum install -y dotnet-runtime-8.0
+              
+              # Verify installation
+              if command -v dotnet &> /dev/null; then
+                echo "✅ .NET installation completed:"
+                dotnet --version
+              else
+                echo "❌ Package installation failed! Trying alternative method..."
+                
+                # Alternative installation method using the install script
+                curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 8.0
+                
+                # Add to PATH for current session
+                export DOTNET_ROOT=$HOME/.dotnet
+                export PATH=$PATH:$HOME/.dotnet
+                
+                # Create symlink for system-wide access
+                sudo ln -sf $HOME/.dotnet/dotnet /usr/bin/dotnet
+                
+                # Verify alternative installation
+                if [ -f "$HOME/.dotnet/dotnet" ]; then
+                  echo "✅ .NET installation completed via script:"
+                  $HOME/.dotnet/dotnet --version
+                else
+                  echo "❌ All .NET installation methods failed!"
+                  exit 1
+                fi
+              fi
+            fi
+            
             # Find .NET installation
             DOTNET_CMD=""
             if command -v dotnet &> /dev/null; then
