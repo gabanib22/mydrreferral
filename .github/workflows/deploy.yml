@@ -298,9 +298,6 @@ jobs:
             echo "Available files:"
             ls -la
             
-            # Log all output to a file for debugging
-            exec > >(tee -a /var/log/mydrreferral-startup.log) 2>&1
-            
             # Install .NET if not found
             echo "🔧 Checking .NET installation..."
             if ! command -v dotnet &> /dev/null; then
@@ -435,29 +432,42 @@ jobs:
             echo "🔧 Verifying EF tools can find .NET runtime..."
             dotnet-ef --version
             
+            # Test migration project files exist
+            echo "🔍 Checking migration project files..."
+            if [ -f "MyDrReferral.Data/MyDrReferral.Data.csproj" ]; then
+              echo "✅ Data project found: MyDrReferral.Data/MyDrReferral.Data.csproj"
+            else
+              echo "❌ Data project not found: MyDrReferral.Data/MyDrReferral.Data.csproj"
+              echo "Available .csproj files:"
+              find . -name "*.csproj" -type f
+              exit 1
+            fi
+            
+            if [ -f "MyDrReferral.Api/MyDrReferral.Api.csproj" ]; then
+              echo "✅ API project found: MyDrReferral.Api/MyDrReferral.Api.csproj"
+            else
+              echo "❌ API project not found: MyDrReferral.Api/MyDrReferral.Api.csproj"
+              echo "Available .csproj files:"
+              find . -name "*.csproj" -type f
+              exit 1
+            fi
+            
             # Run migrations
             echo "Running database update..."
             echo "Migration command: $DOTNET_CMD ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --connection \"$ConnectionStrings__DefaultConnection\" --verbose"
             
-            # Capture migration output
-            MIGRATION_OUTPUT=$($DOTNET_CMD ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --connection "$ConnectionStrings__DefaultConnection" --verbose 2>&1)
-            MIGRATION_EXIT_CODE=$?
-            
-            echo "Migration output:"
-            echo "$MIGRATION_OUTPUT"
-            echo "Migration exit code: $MIGRATION_EXIT_CODE"
-            
-            if [ $MIGRATION_EXIT_CODE -eq 0 ]; then
+            # Run migration with direct error output
+            if $DOTNET_CMD ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --connection "$ConnectionStrings__DefaultConnection" --verbose; then
               echo "✅ Database migrations completed successfully"
             else
-              echo "❌ Database migrations failed with exit code $MIGRATION_EXIT_CODE"
+              echo "❌ Database migrations failed with exit code $?"
               echo "Migration error details:"
               echo "Connection string: $ConnectionStrings__DefaultConnection"
               echo "API directory: $(pwd)"
               echo "Available files:"
               ls -la
-              echo "Migration output:"
-              echo "$MIGRATION_OUTPUT"
+              echo "Available .csproj files:"
+              find . -name "*.csproj" -type f
               exit 1
             fi
             
