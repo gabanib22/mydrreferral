@@ -10,7 +10,7 @@ namespace MyDrReferral.Data.Models
         public int UserType { get; set; }
         public bool IsActive { get; set; } = true;
         public bool IsDelete { get; set; } = false;
-        public DateTime? CreatedOn { get; set; } = DateTime.UtcNow;
+        public DateTime? CreatedOn { get; set; } = DateTime.UtcNow.ToUniversalTime();
         public decimal? ReferralAmount { get; set; }
         //24-11-2023
         [DatabaseGeneratedAttribute(DatabaseGeneratedOption.Identity)]

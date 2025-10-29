@@ -81,7 +81,7 @@ namespace MyDrReferral.Service.Services
                     new Claim("userId", userId),
                     new Claim("userName", UserName)
                 }),
-                Expires = DateTime.UtcNow.AddMinutes(expiryMinutes),
+                Expires = DateTime.UtcNow.ToUniversalTime().AddMinutes(expiryMinutes),
                 Issuer = issuer,
                 Audience = audience,
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(tokenKey), SecurityAlgorithms.HmacSha256Signature)

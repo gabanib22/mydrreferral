@@ -40,7 +40,7 @@ namespace MyDrReferral.Service.Services
                     Name = reffer.PatientName,
                     RrlfById = (await _userService.GetCurrentUser()).UserId,
                     //RrlfById = 1234,
-                    CreatedDate = DateTime.UtcNow
+                    CreatedDate = DateTime.UtcNow.ToUniversalTime()
 
                 };
                 _db.Add(patientData);
@@ -52,8 +52,8 @@ namespace MyDrReferral.Service.Services
                     PatientId=patientData.Id,
                     Notes=reffer.Notes,
                     RflAmount=reffer.RflAmount,
-                    RrlfDate = DateTime.UtcNow,
-                    AcceptedDate = DateTime.UtcNow,                   
+                    RrlfDate = DateTime.UtcNow.ToUniversalTime(),
+                    AcceptedDate = DateTime.UtcNow.ToUniversalTime(),                   
                     Status=(int)Common.ConnectionStatusType.Initiated
                 };
                 _db.Add(refferData);
@@ -103,7 +103,7 @@ namespace MyDrReferral.Service.Services
                     if ((int)Common.ConnectionStatusType.InProgress == reffer.Status)
                     {
                         existReffer.IsAccepted = true;
-                        existReffer.AcceptedDate = DateTime.UtcNow;
+                        existReffer.AcceptedDate = DateTime.UtcNow.ToUniversalTime();
                     }
                     existReffer.Status = reffer.Status;
                     await _db.SaveChangesAsync();

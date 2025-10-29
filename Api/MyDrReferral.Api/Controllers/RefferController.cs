@@ -299,7 +299,7 @@ public class RefferController : Controller
             {
                 case "patient_visited":
                     Console.WriteLine("Setting PatientVisitedDate to current time");
-                    referral.PatientVisitedDate = DateTime.UtcNow;
+                    referral.PatientVisitedDate = DateTime.UtcNow.ToUniversalTime();
                     break;
                 case "payment_pending":
                     Console.WriteLine("Payment pending - no changes needed");
@@ -307,7 +307,7 @@ public class RefferController : Controller
                     break;
                 case "paid":
                     Console.WriteLine("Setting PaymentDate and IsPaid");
-                    referral.PaymentDate = DateTime.UtcNow;
+                    referral.PaymentDate = DateTime.UtcNow.ToUniversalTime();
                     referral.IsPaid = true;
                     break;
                 case "rejected":
@@ -341,7 +341,7 @@ public class RefferController : Controller
     public IActionResult Test()
     {
         Console.WriteLine("Test endpoint called");
-        return Ok(new { message = "Test endpoint working", timestamp = DateTime.UtcNow });
+        return Ok(new { message = "Test endpoint working", timestamp = DateTime.UtcNow.ToUniversalTime() });
     }
 
     [HttpPut("updateStatusSimple")]
@@ -416,12 +416,12 @@ public class RefferController : Controller
             switch (status.ToLower())
             {
                 case "patient_visited":
-                    referral.PatientVisitedDate = DateTime.UtcNow;
+                    referral.PatientVisitedDate = DateTime.UtcNow.ToUniversalTime();
                     break;
                 case "payment_pending":
                     break;
                 case "paid":
-                    referral.PaymentDate = DateTime.UtcNow;
+                    referral.PaymentDate = DateTime.UtcNow.ToUniversalTime();
                     referral.IsPaid = true;
                     break;
                 case "rejected":
