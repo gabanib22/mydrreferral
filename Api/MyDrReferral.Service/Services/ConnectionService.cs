@@ -30,21 +30,31 @@ namespace MyDrReferral.Service.Services
             var res = new ServiceResponse();
             try
             {
+                Console.WriteLine($"🔍 ConnectionRequest - ReceiverId: {connection.ReceiverId}");
+                Console.WriteLine($"🔍 ConnectionRequest - SenderId: {connection.SenderId}");
+                Console.WriteLine($"🔍 ConnectionRequest - CreatedBy: {connection.CreatedBy}");
+                Console.WriteLine($"🔍 ConnectionRequest - Notes: {connection.Notes}");
+
                 if (connection.ReceiverId <= 0)
                 {
+                    Console.WriteLine("❌ Invalid Receiver ID");
                     res.Message.Add("Invalid Receiver");
                     return res;
                 }
-                var curreUser = await _userService.GetCurrentUser();
-                if (curreUser == null || curreUser.UserId <= 0)
+
+                // Use the SenderId from the connection object instead of getting current user
+                if (connection.SenderId <= 0)
                 {
+                    Console.WriteLine("❌ Invalid Sender ID");
                     res.Message.Add("Invalid Sender");
                     return res;
                 }
 
+                Console.WriteLine($"🔍 Checking for existing connection: SenderId={connection.SenderId}, ReceiverId={connection.ReceiverId}");
                 if (await _db.TblConnections
-                    .AnyAsync(x => x.SenderId == curreUser.UserId && x.ReceiverId == connection.ReceiverId && x.IsDeleted == false))
+                    .AnyAsync(x => x.SenderId == connection.SenderId && x.ReceiverId == connection.ReceiverId && x.IsDeleted == false))
                 {
+                    Console.WriteLine("❌ Connection request already exists");
                     res.Message.Add("Connection Request already sent to selected user");
                     return res;
                 }
@@ -52,22 +62,31 @@ namespace MyDrReferral.Service.Services
                 //Insert Record to tblConnection
                 var conn = new TblConnection()
                 {
-                    SenderId = curreUser.UserId,
+                    SenderId = connection.SenderId,
                     ReceiverId = connection.ReceiverId,
                     Notes = connection.Notes,
-                    CreatedBy = curreUser.UserId,
+                    CreatedBy = connection.CreatedBy,
                     CreatedDate = DateTime.Now,
-                    LastUpdateDate = DateTime.Now
+                    LastUpdateDate = DateTime.Now,
+                    IsAccepted = false,
+                    IsRejected = false,
+                    IsDeleted = false
                 };
 
+                Console.WriteLine($"🔍 About to save connection: {System.Text.Json.JsonSerializer.Serialize(conn)}");
                 _db.Add(conn);
                 await _db.SaveChangesAsync();
+                Console.WriteLine("✅ Connection saved successfully");
                 res.IsSuccess = true;
                 res.Message.Add("Connection Request is send successfully");
 
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"❌ ConnectionRequest Error: {ex.Message}");
+                Console.WriteLine($"❌ Stack Trace: {ex.StackTrace}");
+                Console.WriteLine($"❌ Inner Exception: {ex.InnerException?.Message}");
+                
                 await _errorLogService.AddErrorLog(new ErrorLogModel(ex)
                 {
                     Subject = Common.GetErrorSubject(),
