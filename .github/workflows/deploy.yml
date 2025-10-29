@@ -605,98 +605,10 @@ jobs:
             sudo systemctl status nginx
             sudo systemctl status mydrreferral-api.service
 
-  # Database Migration
-  migrate-database:
-    runs-on: ubuntu-latest
-    needs: deploy-api
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '8.0.x'
-
-      - name: Install Entity Framework tools
-        run: |
-          dotnet tool install --global dotnet-ef
-          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
-
-      - name: Verify EF tools installation
-        run: |
-          dotnet ef --version
-          echo "✅ Entity Framework tools installed successfully"
-
-      - name: Restore dependencies
-        run: |
-          cd Api
-          echo "Restoring dependencies for all projects..."
-          dotnet restore MyDrReferral.Api/MyDrReferral.Api.csproj
-
-      - name: Run database migrations
-        run: |
-          cd Api
-          echo "🔍 Debugging database migration..."
-          echo "Current directory: $(pwd)"
-          echo "Available projects:"
-          find . -name "*.csproj" -type f
-          echo "Checking EF tools:"
-          dotnet ef --version
-          echo "Setting up environment variables..."
-          export ConnectionStrings__DefaultConnection="Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
-          echo "Connection string set (first 50 chars): ${ConnectionStrings__DefaultConnection:0:50}..."
-          echo "Environment variables:"
-          env | grep -i connection
-          echo "Testing connection string format..."
-          echo "Expected format: Host=...;Database=...;Username=...;Password=..."
-          
-          # Check if connection string points to localhost
-          if [[ "$ConnectionStrings__DefaultConnection" == *"Host=localhost"* ]] || [[ "$ConnectionStrings__DefaultConnection" == *"Host=127.0.0.1"* ]]; then
-            echo "⚠️  WARNING: Connection string points to localhost!"
-            echo "This will fail in GitHub Actions as there's no local PostgreSQL."
-            echo "Please update your DATABASE_CONNECTION_STRING secret to point to your RDS database."
-            echo "Example: Host=your-rds-endpoint.region.rds.amazonaws.com;Database=mydrreferral;Username=mydrreferral;Password=your-password"
-            echo "Skipping migration for now..."
-            exit 0
-          fi
-          
-          echo "Testing database connection first..."
-          # Extract host and port for testing
-          HOST=$(echo "$ConnectionStrings__DefaultConnection" | grep -o 'Host=[^;]*' | cut -d'=' -f2)
-          PORT=$(echo "$ConnectionStrings__DefaultConnection" | grep -o 'Port=[^;]*' | cut -d'=' -f2)
-          echo "Testing connection to $HOST:$PORT"
-          
-          # Test connection with retry
-          for i in {1..3}; do
-            echo "Connection attempt $i..."
-            timeout 30 bash -c "echo > /dev/tcp/$HOST/$PORT" && echo "✅ Connection successful" && break || echo "❌ Connection attempt $i failed"
-            sleep 5
-          done
-          
-          echo "Running database migration with retry logic..."
-          # Run migration with retry
-          for i in {1..3}; do
-            echo "Migration attempt $i..."
-            if dotnet ef database update --project MyDrReferral.Data/MyDrReferral.Data.csproj --startup-project MyDrReferral.Api/MyDrReferral.Api.csproj --verbose --connection "Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;" --timeout 60; then
-              echo "✅ Migration successful"
-              break
-            else
-              echo "❌ Migration attempt $i failed"
-              if [ $i -lt 3 ]; then
-                echo "Waiting 10 seconds before retry..."
-                sleep 10
-              fi
-            fi
-          done
-        env:
-          ConnectionStrings__DefaultConnection: "Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
-          ASPNETCORE_ENVIRONMENT: Production
-
   # Health Check
   health-check:
     runs-on: ubuntu-latest
-    needs: [deploy-api, migrate-database]
+    needs: [deploy-api]
     steps:
       - name: Wait for API to be ready
         run: |
@@ -747,12 +659,12 @@ jobs:
   # Notification
   notify:
     runs-on: ubuntu-latest
-    needs: [deploy-frontend, deploy-api, migrate-database, health-check]
+    needs: [deploy-frontend, deploy-api, health-check]
     if: always()
     steps:
       - name: Notify deployment status
         run: |
-          if [ "${{ needs.deploy-frontend.result }}" == "success" ] && [ "${{ needs.deploy-api.result }}" == "success" ] && [ "${{ needs.migrate-database.result }}" == "success" ] && [ "${{ needs.health-check.result }}" == "success" ]; then
+          if [ "${{ needs.deploy-frontend.result }}" == "success" ] && [ "${{ needs.deploy-api.result }}" == "success" ] && [ "${{ needs.health-check.result }}" == "success" ]; then
             echo "✅ Deployment successful!"
             echo "Frontend: http://${{ secrets.S3_BUCKET_NAME }}.s3-website.ap-south-1.amazonaws.com"
             echo "API: http://${{ secrets.EC2_HOST }}"
@@ -760,7 +672,6 @@ jobs:
             echo "❌ Deployment failed!"
             echo "Frontend: ${{ needs.deploy-frontend.result }}"
             echo "API: ${{ needs.deploy-api.result }}"
-            echo "Database: ${{ needs.migrate-database.result }}"
             echo "Health: ${{ needs.health-check.result }}"
             exit 1
           fi
