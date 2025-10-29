@@ -80,38 +80,59 @@ namespace MyDrReferral.Data.Models
 
         private void FixDateTimes()
         {
+            Console.WriteLine("🔍 FixDateTimes called - checking all entities...");
+            int fixedCount = 0;
+            
             foreach (var entry in ChangeTracker.Entries())
             {
                 if (entry.State == Microsoft.EntityFrameworkCore.EntityState.Added || 
                     entry.State == Microsoft.EntityFrameworkCore.EntityState.Modified)
                 {
+                    Console.WriteLine($"🔍 Processing entity: {entry.Entity.GetType().Name}, State: {entry.State}");
+                    
                     foreach (var prop in entry.Properties)
                     {
                         // Force ALL DateTime to UTC - be aggressive
                         if (prop.CurrentValue != null)
                         {
+                            var valueType = prop.CurrentValue.GetType();
+                            Console.WriteLine($"  Property: {prop.Metadata.Name}, Type: {valueType.Name}, Value: {prop.CurrentValue}");
+                            
                             // Handle non-nullable DateTime
-                            if (prop.CurrentValue.GetType() == typeof(DateTime))
+                            if (valueType == typeof(DateTime))
                             {
                                 DateTime dt = (DateTime)prop.CurrentValue;
+                                Console.WriteLine($"    DateTime Kind: {dt.Kind}");
                                 if (dt.Kind != DateTimeKind.Utc)
                                 {
-                                    prop.CurrentValue = DateTime.SpecifyKind(dt.ToUniversalTime(), DateTimeKind.Utc);
+                                    var fixedDt = DateTime.SpecifyKind(dt.ToUniversalTime(), DateTimeKind.Utc);
+                                    prop.CurrentValue = fixedDt;
+                                    fixedCount++;
+                                    Console.WriteLine($"    ✅ Fixed DateTime from {dt.Kind} to UTC");
                                 }
                             }
                             // Handle nullable DateTime
-                            else if (prop.CurrentValue.GetType() == typeof(DateTime?))
+                            else if (valueType == typeof(DateTime?))
                             {
                                 DateTime? nullableDt = (DateTime?)prop.CurrentValue;
-                                if (nullableDt.HasValue && nullableDt.Value.Kind != DateTimeKind.Utc)
+                                if (nullableDt.HasValue)
                                 {
-                                    prop.CurrentValue = (DateTime?)DateTime.SpecifyKind(nullableDt.Value.ToUniversalTime(), DateTimeKind.Utc);
+                                    Console.WriteLine($"    Nullable DateTime Kind: {nullableDt.Value.Kind}");
+                                    if (nullableDt.Value.Kind != DateTimeKind.Utc)
+                                    {
+                                        var fixedDt = DateTime.SpecifyKind(nullableDt.Value.ToUniversalTime(), DateTimeKind.Utc);
+                                        prop.CurrentValue = (DateTime?)fixedDt;
+                                        fixedCount++;
+                                        Console.WriteLine($"    ✅ Fixed Nullable DateTime from {nullableDt.Value.Kind} to UTC");
+                                    }
                                 }
                             }
                         }
                     }
                 }
             }
+            
+            Console.WriteLine($"✅ FixDateTimes completed - fixed {fixedCount} DateTime values");
         }
     }
 }
