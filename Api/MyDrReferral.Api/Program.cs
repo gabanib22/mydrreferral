@@ -7,6 +7,7 @@ using System.Text.Json;
 using MyDrReferral.Api.Mapper;
 using MyDrReferral.Api.MediatR;
 using MyDrReferral.Data.Models;
+using MyDrReferral.Data.Interceptors;
 using MyDrReferral.Service.Interface;
 using MyDrReferral.Service.Models;
 using MyDrReferral.Service.Services;
@@ -53,6 +54,9 @@ builder.Services.AddDbContext<MyDrReferralContext>(options =>
     {
         npgsqlOptions.EnableRetryOnFailure();
     });
+    
+    // Add interceptor to fix DateTime parameters right before SQL execution
+    options.AddInterceptors(new DateTimeInterceptor());
 });
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
