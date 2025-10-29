@@ -139,7 +139,7 @@ jobs:
             # Install Nginx if not found
             if ! command -v nginx &> /dev/null; then
               echo "Installing Nginx..."
-              sudo amazon-linux-extras install -y nginx1
+              sudo amazon-linux-extras install -y nginx1 > /dev/null 2>&1
               sudo systemctl enable nginx
             fi
             
@@ -169,7 +169,17 @@ jobs:
             sudo pkill -f "dotnet.*MyDrReferral.Api.dll" || true
             sleep 2
             
+            # Kill any remaining processes on port 5000 (using netstat/ss instead of lsof)
+            echo "Checking port 5000..."
+            PORT_PID=$(sudo netstat -tlnp 2>/dev/null | grep ':5000 ' | awk '{print $7}' | cut -d'/' -f1 | head -1)
+            if [ -n "$PORT_PID" ]; then
+              echo "Killing process $PORT_PID on port 5000"
+              sudo kill -9 $PORT_PID || true
+            fi
+            sleep 1
+            
             # Restart Nginx
+            echo "Restarting Nginx..."
             sudo systemctl restart nginx
             
             # Start API
@@ -178,10 +188,6 @@ jobs:
             export ASPNETCORE_ENVIRONMENT=Production
             export ASPNETCORE_URLS=http://+:5000
             export ConnectionStrings__DefaultConnection="Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
-            
-            # Kill any remaining processes on port 5000
-            sudo lsof -ti:5000 | xargs sudo kill -9 || true
-            sleep 1
             
             # Start API in background
             nohup dotnet MyDrReferral.Api.dll > /var/log/mydrreferral-api.log 2>&1 &
