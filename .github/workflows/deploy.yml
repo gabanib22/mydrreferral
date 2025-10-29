@@ -170,12 +170,42 @@ jobs:
           for i in {1..5}; do
             if curl -f http://${{ secrets.EC2_HOST }}/api/healthcheck/success; then
               echo "✅ API is healthy"
-              exit 0
+              break
             fi
             echo "Attempt $i failed, retrying in 5 seconds..."
             sleep 5
           done
-          echo "❌ API health check failed"
+          
+          echo ""
+          echo "========================================="
+          echo "Testing DateTime endpoint..."
+          echo "========================================="
+          
+          for i in {1..3}; do
+            echo "Attempt $i: Calling test DateTime endpoint..."
+            RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://${{ secrets.EC2_HOST }}/api/TestDateTime/test || echo "HTTP_STATUS:000")
+            HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
+            BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d')
+            
+            echo "Response Status: $HTTP_STATUS"
+            echo "Response Body:"
+            echo "$BODY" | head -50
+            
+            if [ "$HTTP_STATUS" = "200" ]; then
+              echo "✅ DateTime test PASSED"
+              exit 0
+            elif [ "$HTTP_STATUS" = "500" ]; then
+              echo "❌ DateTime test FAILED with 500 error"
+              echo "Full response:"
+              echo "$BODY"
+              exit 1
+            else
+              echo "Attempt $i failed (Status: $HTTP_STATUS), retrying in 3 seconds..."
+              sleep 3
+            fi
+          done
+          
+          echo "❌ DateTime test failed after 3 attempts"
           exit 1
 
   # Notification

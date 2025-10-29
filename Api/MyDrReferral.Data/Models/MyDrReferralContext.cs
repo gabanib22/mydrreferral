@@ -25,6 +25,7 @@ namespace MyDrReferral.Data.Models
         public virtual DbSet<TblPersonalDetail> TblPersonalDetail { get; set; }
         public virtual DbSet<TblReffer> TblReffer { get; set; }
         public virtual DbSet<Patient> Patient { get; set; }
+        public virtual DbSet<TestDateTime> TestDateTime { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -71,76 +72,35 @@ namespace MyDrReferral.Data.Models
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
-            // Multiple logging approaches to ensure we capture it
-            Console.WriteLine($"🚀 SaveChangesAsync(CancellationToken) called - Thread ID: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
-            System.Diagnostics.Debug.WriteLine($"🚀 SaveChangesAsync(CancellationToken) called - Thread ID: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
-            
-            // Write to file as backup
-            try
-            {
-                System.IO.File.AppendAllText("/tmp/mydrreferral-savechanges.log", 
-                    $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] SaveChangesAsync(CancellationToken) called\n");
-            }
-            catch { }
-            
             FixDateTimes();
             return base.SaveChangesAsync(cancellationToken);
         }
 
         public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
         {
-            // Multiple logging approaches to ensure we capture it
-            Console.WriteLine($"🚀 SaveChangesAsync(bool, CancellationToken) called - acceptAllChangesOnSuccess: {acceptAllChangesOnSuccess}");
-            System.Diagnostics.Debug.WriteLine($"🚀 SaveChangesAsync(bool, CancellationToken) called - acceptAllChangesOnSuccess: {acceptAllChangesOnSuccess}");
-            
-            // Write to file as backup
-            try
-            {
-                System.IO.File.AppendAllText("/tmp/mydrreferral-savechanges.log", 
-                    $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] SaveChangesAsync(bool={acceptAllChangesOnSuccess}, CancellationToken) called\n");
-            }
-            catch { }
-            
             FixDateTimes();
             return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
 
         public override int SaveChanges()
         {
-            Console.WriteLine($"🚀 SaveChanges() called");
             FixDateTimes();
             return base.SaveChanges();
         }
 
         public override int SaveChanges(bool acceptAllChangesOnSuccess)
         {
-            Console.WriteLine($"🚀 SaveChanges(bool) called - acceptAllChangesOnSuccess: {acceptAllChangesOnSuccess}");
             FixDateTimes();
             return base.SaveChanges(acceptAllChangesOnSuccess);
         }
 
         private void FixDateTimes()
         {
-            // Multiple logging approaches
-            Console.WriteLine("=== FixDateTimes START ===");
-            System.Diagnostics.Debug.WriteLine("=== FixDateTimes START ===");
-            
-            try
-            {
-                System.IO.File.AppendAllText("/tmp/mydrreferral-fixdatetimes.log", 
-                    $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] FixDateTimes START\n");
-            }
-            catch { }
-            
-            int fixedCount = 0;
-            
             foreach (var entry in ChangeTracker.Entries())
             {
                 if (entry.State == Microsoft.EntityFrameworkCore.EntityState.Added || 
                     entry.State == Microsoft.EntityFrameworkCore.EntityState.Modified)
                 {
-                    Console.WriteLine($">>> Entity: {entry.Entity.GetType().Name}, State: {entry.State}");
-                    
                     foreach (var prop in entry.Properties)
                     {
                         if (prop.CurrentValue != null)
@@ -150,44 +110,23 @@ namespace MyDrReferral.Data.Models
                             if (valueType == typeof(DateTime))
                             {
                                 DateTime dt = (DateTime)prop.CurrentValue;
-                                Console.WriteLine($">>>>>> Property: {prop.Metadata.Name}, Kind: {dt.Kind}");
                                 if (dt.Kind != DateTimeKind.Utc)
                                 {
-                                    var fixedDt = DateTime.SpecifyKind(dt.ToUniversalTime(), DateTimeKind.Utc);
-                                    prop.CurrentValue = fixedDt;
-                                    fixedCount++;
-                                    Console.WriteLine($">>>>>> FIXED! Changed {prop.Metadata.Name} from {dt.Kind} to UTC");
+                                    prop.CurrentValue = DateTime.SpecifyKind(dt.ToUniversalTime(), DateTimeKind.Utc);
                                 }
                             }
                             else if (valueType == typeof(DateTime?))
                             {
                                 DateTime? nullableDt = (DateTime?)prop.CurrentValue;
-                                if (nullableDt.HasValue)
+                                if (nullableDt.HasValue && nullableDt.Value.Kind != DateTimeKind.Utc)
                                 {
-                                    Console.WriteLine($">>>>>> Property: {prop.Metadata.Name}, Kind: {nullableDt.Value.Kind}");
-                                    if (nullableDt.Value.Kind != DateTimeKind.Utc)
-                                    {
-                                        var fixedDt = DateTime.SpecifyKind(nullableDt.Value.ToUniversalTime(), DateTimeKind.Utc);
-                                        prop.CurrentValue = (DateTime?)fixedDt;
-                                        fixedCount++;
-                                        Console.WriteLine($">>>>>> FIXED! Changed {prop.Metadata.Name} from {nullableDt.Value.Kind} to UTC");
-                                    }
+                                    prop.CurrentValue = (DateTime?)DateTime.SpecifyKind(nullableDt.Value.ToUniversalTime(), DateTimeKind.Utc);
                                 }
                             }
                         }
                     }
                 }
             }
-            
-            Console.WriteLine($"=== FixDateTimes END - Fixed {fixedCount} DateTime values ===");
-            System.Diagnostics.Debug.WriteLine($"=== FixDateTimes END - Fixed {fixedCount} DateTime values ===");
-            
-            try
-            {
-                System.IO.File.AppendAllText("/tmp/mydrreferral-fixdatetimes.log", 
-                    $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] FixDateTimes END - Fixed {fixedCount} DateTime values\n");
-            }
-            catch { }
         }
     }
 }
