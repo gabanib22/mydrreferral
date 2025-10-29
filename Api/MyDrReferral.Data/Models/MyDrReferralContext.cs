@@ -60,15 +60,18 @@ namespace MyDrReferral.Data.Models
             {
                 foreach (var property in entry.Properties)
                 {
+                    // Handle non-nullable DateTime
                     if (property.CurrentValue is DateTime dateTime && dateTime.Kind == DateTimeKind.Local)
                     {
                         property.CurrentValue = dateTime.ToUniversalTime();
                     }
-                    else if (property.CurrentValue is DateTime? nullableDateTime && 
-                             nullableDateTime.HasValue && 
-                             nullableDateTime.Value.Kind == DateTimeKind.Local)
+                    // Handle nullable DateTime
+                    else if (property.CurrentValue is DateTime? nullableDateTime)
                     {
-                        property.CurrentValue = nullableDateTime.Value.ToUniversalTime();
+                        if (nullableDateTime.HasValue && nullableDateTime.Value.Kind == DateTimeKind.Local)
+                        {
+                            property.CurrentValue = nullableDateTime.Value.ToUniversalTime();
+                        }
                     }
                 }
             }
