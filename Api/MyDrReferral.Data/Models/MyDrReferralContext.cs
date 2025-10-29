@@ -38,15 +38,29 @@ namespace MyDrReferral.Data.Models
             });
 
             // Apply UTC converter to ALL DateTime properties globally
+            // This ensures ALL DateTime values are stored as UTC in PostgreSQL
             var dateTimeConverter = new ValueConverter<DateTime, DateTime>(
-                v => v.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v.ToUniversalTime(), DateTimeKind.Utc),
+                // Convert to DB: Ensure UTC Kind
+                v => {
+                    if (v.Kind == DateTimeKind.Utc) 
+                        return v;
+                    var utc = v.ToUniversalTime();
+                    return DateTime.SpecifyKind(utc, DateTimeKind.Utc);
+                },
+                // Convert from DB: Always UTC from PostgreSQL
                 v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
             );
 
             var nullableDateTimeConverter = new ValueConverter<DateTime?, DateTime?>(
-                v => v.HasValue 
-                    ? (v.Value.Kind == DateTimeKind.Utc ? v.Value : DateTime.SpecifyKind(v.Value.ToUniversalTime(), DateTimeKind.Utc))
-                    : v,
+                // Convert to DB: Ensure UTC Kind
+                v => {
+                    if (!v.HasValue) return v;
+                    if (v.Value.Kind == DateTimeKind.Utc) 
+                        return v;
+                    var utc = v.Value.ToUniversalTime();
+                    return DateTime.SpecifyKind(utc, DateTimeKind.Utc);
+                },
+                // Convert from DB: Always UTC from PostgreSQL
                 v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v
             );
 
@@ -72,15 +86,27 @@ namespace MyDrReferral.Data.Models
             return base.SaveChangesAsync(cancellationToken);
         }
 
+        public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+        {
+            FixDateTimes();
+            return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+
         public override int SaveChanges()
         {
             FixDateTimes();
             return base.SaveChanges();
         }
 
+        public override int SaveChanges(bool acceptAllChangesOnSuccess)
+        {
+            FixDateTimes();
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+
         private void FixDateTimes()
         {
-            Console.WriteLine("🔍 FixDateTimes called - checking all entities...");
+            Console.WriteLine("=== FixDateTimes START ===");
             int fixedCount = 0;
             
             foreach (var entry in ChangeTracker.Entries())
@@ -88,42 +114,38 @@ namespace MyDrReferral.Data.Models
                 if (entry.State == Microsoft.EntityFrameworkCore.EntityState.Added || 
                     entry.State == Microsoft.EntityFrameworkCore.EntityState.Modified)
                 {
-                    Console.WriteLine($"🔍 Processing entity: {entry.Entity.GetType().Name}, State: {entry.State}");
+                    Console.WriteLine($">>> Entity: {entry.Entity.GetType().Name}, State: {entry.State}");
                     
                     foreach (var prop in entry.Properties)
                     {
-                        // Force ALL DateTime to UTC - be aggressive
                         if (prop.CurrentValue != null)
                         {
                             var valueType = prop.CurrentValue.GetType();
-                            Console.WriteLine($"  Property: {prop.Metadata.Name}, Type: {valueType.Name}, Value: {prop.CurrentValue}");
                             
-                            // Handle non-nullable DateTime
                             if (valueType == typeof(DateTime))
                             {
                                 DateTime dt = (DateTime)prop.CurrentValue;
-                                Console.WriteLine($"    DateTime Kind: {dt.Kind}");
+                                Console.WriteLine($">>>>>> Property: {prop.Metadata.Name}, Kind: {dt.Kind}");
                                 if (dt.Kind != DateTimeKind.Utc)
                                 {
                                     var fixedDt = DateTime.SpecifyKind(dt.ToUniversalTime(), DateTimeKind.Utc);
                                     prop.CurrentValue = fixedDt;
                                     fixedCount++;
-                                    Console.WriteLine($"    ✅ Fixed DateTime from {dt.Kind} to UTC");
+                                    Console.WriteLine($">>>>>> FIXED! Changed {prop.Metadata.Name} from {dt.Kind} to UTC");
                                 }
                             }
-                            // Handle nullable DateTime
                             else if (valueType == typeof(DateTime?))
                             {
                                 DateTime? nullableDt = (DateTime?)prop.CurrentValue;
                                 if (nullableDt.HasValue)
                                 {
-                                    Console.WriteLine($"    Nullable DateTime Kind: {nullableDt.Value.Kind}");
+                                    Console.WriteLine($">>>>>> Property: {prop.Metadata.Name}, Kind: {nullableDt.Value.Kind}");
                                     if (nullableDt.Value.Kind != DateTimeKind.Utc)
                                     {
                                         var fixedDt = DateTime.SpecifyKind(nullableDt.Value.ToUniversalTime(), DateTimeKind.Utc);
                                         prop.CurrentValue = (DateTime?)fixedDt;
                                         fixedCount++;
-                                        Console.WriteLine($"    ✅ Fixed Nullable DateTime from {nullableDt.Value.Kind} to UTC");
+                                        Console.WriteLine($">>>>>> FIXED! Changed {prop.Metadata.Name} from {nullableDt.Value.Kind} to UTC");
                                     }
                                 }
                             }
@@ -132,7 +154,7 @@ namespace MyDrReferral.Data.Models
                 }
             }
             
-            Console.WriteLine($"✅ FixDateTimes completed - fixed {fixedCount} DateTime values");
+            Console.WriteLine($"=== FixDateTimes END - Fixed {fixedCount} DateTime values ===");
         }
     }
 }
