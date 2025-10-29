@@ -115,16 +115,28 @@ public class ConnectionController : Controller
         }
         catch (Exception ex)
         {
+            Console.WriteLine($"❌ CONNECTION REQUEST EXCEPTION:");
+            Console.WriteLine($"Exception Type: {ex.GetType().Name}");
+            Console.WriteLine($"Exception Message: {ex.Message}");
+            Console.WriteLine($"Stack Trace: {ex.StackTrace}");
+            Console.WriteLine($"Inner Exception: {ex.InnerException?.Message}");
+            Console.WriteLine($"Inner Exception Type: {ex.InnerException?.GetType().Name}");
+            Console.WriteLine($"Inner Stack Trace: {ex.InnerException?.StackTrace}");
+
             await _mediator.Send(new ErrorRequest
             {
                 ErrorLogModel = new ErrorLogModel(ex)
                 {
                     Subject = Common.GetErrorSubject(),
-                    Description = $"Data :: {JsonSerializer.Serialize(connection)} ### Exception ### {ex.Message}",
+                    Description = $"Data :: {JsonSerializer.Serialize(connection)} ### Exception ### {ex.Message} ### Inner Exception ### {ex.InnerException?.Message}",
                 }
             });
             responseModel.IsSuccess = false;
-            responseModel.Message.Add(ex.Message);
+            responseModel.Message.Add($"Exception: {ex.Message}");
+            if (ex.InnerException != null)
+            {
+                responseModel.Message.Add($"Inner Exception: {ex.InnerException.Message}");
+            }
             return BadRequest(responseModel);
         }
     }
