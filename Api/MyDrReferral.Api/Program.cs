@@ -14,7 +14,6 @@ using System.Text;
 
 // Normalize Npgsql timestamp behavior across environments (EC2 vs Local)
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-AppContext.SetSwitch("Npgsql.DisableDateTimeInfinityConversions", true);
 
 var builder = WebApplication.CreateBuilder(args);
 
