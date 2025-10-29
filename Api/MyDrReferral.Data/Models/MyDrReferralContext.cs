@@ -41,27 +41,16 @@ namespace MyDrReferral.Data.Models
             // This ensures ALL DateTime values are stored as UTC in PostgreSQL
             var dateTimeConverter = new ValueConverter<DateTime, DateTime>(
                 // Convert to DB: Ensure UTC Kind
-                v => {
-                    if (v.Kind == DateTimeKind.Utc) 
-                        return v;
-                    var utc = v.ToUniversalTime();
-                    return DateTime.SpecifyKind(utc, DateTimeKind.Utc);
-                },
+                v => v.Kind == DateTimeKind.Utc ? v : DateTime.SpecifyKind(v.ToUniversalTime(), DateTimeKind.Utc),
                 // Convert from DB: Always UTC from PostgreSQL
                 v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
             );
 
             var nullableDateTimeConverter = new ValueConverter<DateTime?, DateTime?>(
                 // Convert to DB: Ensure UTC Kind
-                v => {
-                    if (!v.HasValue) return v;
-                    if (v.Value.Kind == DateTimeKind.Utc) 
-                        return v;
-                    var utc = v.Value.ToUniversalTime();
-                    return DateTime.SpecifyKind(utc, DateTimeKind.Utc);
-                },
+                v => !v.HasValue ? null : (v.Value.Kind == DateTimeKind.Utc ? v.Value : DateTime.SpecifyKind(v.Value.ToUniversalTime(), DateTimeKind.Utc)),
                 // Convert from DB: Always UTC from PostgreSQL
-                v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : v
+                v => v.HasValue ? DateTime.SpecifyKind(v.Value, DateTimeKind.Utc) : null
             );
 
             foreach (var entityType in modelBuilder.Model.GetEntityTypes())
