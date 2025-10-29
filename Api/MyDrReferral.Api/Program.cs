@@ -14,6 +14,9 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure Npgsql to handle DateTime properly
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 // Add services to the container.
 
 builder.Services.AddControllers()
