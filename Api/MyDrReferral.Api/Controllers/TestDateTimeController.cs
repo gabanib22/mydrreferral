@@ -4,7 +4,7 @@ using MyDrReferral.Data.Models;
 namespace MyDrReferral.Api.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/testdatetime")]
     public class TestDateTimeController : ControllerBase
     {
         private readonly MyDrReferralContext _db;
@@ -14,6 +14,7 @@ namespace MyDrReferral.Api.Controllers
             _db = db;
         }
 
+        [HttpGet("test")]
         [HttpPost("test")]
         public async Task<IActionResult> TestDateTime()
         {

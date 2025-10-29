@@ -181,29 +181,39 @@ jobs:
           echo "Testing DateTime endpoint..."
           echo "========================================="
           
+          echo "Trying GET first..."
+          GET_RESPONSE=$(curl -s http://${{ secrets.EC2_HOST }}/api/testdatetime/test || echo "ERROR")
+          echo "GET Response: $GET_RESPONSE"
+          
           for i in {1..3}; do
-            echo "Attempt $i: Calling test DateTime endpoint..."
-            RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://${{ secrets.EC2_HOST }}/api/TestDateTime/test || echo "HTTP_STATUS:000")
-            HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2)
-            BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d')
+            echo ""
+            echo "Attempt $i: Calling test DateTime endpoint (POST)..."
+            RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://${{ secrets.EC2_HOST }}/api/testdatetime/test 2>&1 || echo "HTTP_STATUS:000")
+            HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2 || echo "000")
+            BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d' | head -100)
             
             echo "Response Status: $HTTP_STATUS"
             echo "Response Body:"
-            echo "$BODY" | head -50
+            echo "$BODY"
             
             if [ "$HTTP_STATUS" = "200" ]; then
               echo "✅ DateTime test PASSED"
               exit 0
             elif [ "$HTTP_STATUS" = "500" ]; then
-              echo "❌ DateTime test FAILED with 500 error"
-              echo "Full response:"
+              echo "❌ DateTime test FAILED with 500 error - this shows the DateTime issue!"
+              echo "Full error details:"
               echo "$BODY"
               exit 1
             else
-              echo "Attempt $i failed (Status: $HTTP_STATUS), retrying in 3 seconds..."
-              sleep 3
+              if [ "$i" -lt 3 ]; then
+                echo "Attempt $i failed (Status: $HTTP_STATUS), retrying in 3 seconds..."
+                sleep 3
+              fi
             fi
           done
+          
+          echo "❌ Could not reach endpoint (404). Checking if route exists..."
+          curl -v http://${{ secrets.EC2_HOST }}/api/testdatetime/test 2>&1 | head -30
           
           echo "❌ DateTime test failed after 3 attempts"
           exit 1
