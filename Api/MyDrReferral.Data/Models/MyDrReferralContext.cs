@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace MyDrReferral.Data.Models;
 
@@ -51,14 +52,20 @@ public partial class MyDrReferralContext : IdentityDbContext<ApplicationUser>
                   .Metadata.SetAfterSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
         });
 
-        // Configure all DateTime properties to use UTC
+        // ✅ Universal ValueConverter દરેક DateTime field માટે
+        var dateTimeConverter = new ValueConverter<DateTime, DateTime>(
+            v => v.ToUniversalTime(),  // DB માં save કરતા પહેલા UTC માં રૂપાંતરિત કરે છે
+            v => DateTime.SpecifyKind(v, DateTimeKind.Utc) // Read કરતા સમયે પણ UTC તરીકે રાખે છે
+        );
+
+        // ✅ બધાં DateTime property માટે converter લાગુ કરો
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             foreach (var property in entityType.GetProperties())
             {
-                if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
+                if (property.ClrType == typeof(DateTime))
                 {
-                    property.SetColumnType("timestamp with time zone");
+                    property.SetValueConverter(dateTimeConverter);
                 }
             }
         }
