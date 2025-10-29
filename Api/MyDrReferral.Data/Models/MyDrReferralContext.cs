@@ -71,14 +71,36 @@ namespace MyDrReferral.Data.Models
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            // Multiple logging approaches to ensure we capture it
             Console.WriteLine($"🚀 SaveChangesAsync(CancellationToken) called - Thread ID: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+            System.Diagnostics.Debug.WriteLine($"🚀 SaveChangesAsync(CancellationToken) called - Thread ID: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
+            
+            // Write to file as backup
+            try
+            {
+                System.IO.File.AppendAllText("/tmp/mydrreferral-savechanges.log", 
+                    $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] SaveChangesAsync(CancellationToken) called\n");
+            }
+            catch { }
+            
             FixDateTimes();
             return base.SaveChangesAsync(cancellationToken);
         }
 
         public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
         {
+            // Multiple logging approaches to ensure we capture it
             Console.WriteLine($"🚀 SaveChangesAsync(bool, CancellationToken) called - acceptAllChangesOnSuccess: {acceptAllChangesOnSuccess}");
+            System.Diagnostics.Debug.WriteLine($"🚀 SaveChangesAsync(bool, CancellationToken) called - acceptAllChangesOnSuccess: {acceptAllChangesOnSuccess}");
+            
+            // Write to file as backup
+            try
+            {
+                System.IO.File.AppendAllText("/tmp/mydrreferral-savechanges.log", 
+                    $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] SaveChangesAsync(bool={acceptAllChangesOnSuccess}, CancellationToken) called\n");
+            }
+            catch { }
+            
             FixDateTimes();
             return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
@@ -99,7 +121,17 @@ namespace MyDrReferral.Data.Models
 
         private void FixDateTimes()
         {
+            // Multiple logging approaches
             Console.WriteLine("=== FixDateTimes START ===");
+            System.Diagnostics.Debug.WriteLine("=== FixDateTimes START ===");
+            
+            try
+            {
+                System.IO.File.AppendAllText("/tmp/mydrreferral-fixdatetimes.log", 
+                    $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] FixDateTimes START\n");
+            }
+            catch { }
+            
             int fixedCount = 0;
             
             foreach (var entry in ChangeTracker.Entries())
@@ -148,6 +180,14 @@ namespace MyDrReferral.Data.Models
             }
             
             Console.WriteLine($"=== FixDateTimes END - Fixed {fixedCount} DateTime values ===");
+            System.Diagnostics.Debug.WriteLine($"=== FixDateTimes END - Fixed {fixedCount} DateTime values ===");
+            
+            try
+            {
+                System.IO.File.AppendAllText("/tmp/mydrreferral-fixdatetimes.log", 
+                    $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] FixDateTimes END - Fixed {fixedCount} DateTime values\n");
+            }
+            catch { }
         }
     }
 }

@@ -60,6 +60,14 @@ namespace MyDrReferral.Data.Interceptors
         private void FixDateTimeParameters(DbCommand command)
         {
             Console.WriteLine($"🔧 FixDateTimeParameters: Checking {command.Parameters.Count} parameters");
+            System.Diagnostics.Debug.WriteLine($"🔧 FixDateTimeParameters: Checking {command.Parameters.Count} parameters");
+            
+            try
+            {
+                System.IO.File.AppendAllText("/tmp/mydrreferral-interceptor.log", 
+                    $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.fff}] FixDateTimeParameters: Checking {command.Parameters.Count} parameters\n");
+            }
+            catch { }
             
             foreach (DbParameter parameter in command.Parameters)
             {
