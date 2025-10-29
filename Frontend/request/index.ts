@@ -9,7 +9,7 @@ class Request {
   public constructor() { }
 
   // BASE_URL = "https://fv24gbuh7xlc5io2lg22nqmnga0jpbhp.lambda-url.ap-south-1.on.aws/api/";
-  BASE_URL = "http://3.110.30.11/api/";
+  BASE_URL = "https://localhost:7031/api/";
 
   private async getRequest(url: string, payload: {},) {
     const token = typeof window !== 'undefined' ? window.localStorage.getItem("accessToken") : null;

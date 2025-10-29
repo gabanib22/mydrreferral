@@ -74,6 +74,7 @@ namespace MyDrReferral.Service.Services
                 };
 
                 Console.WriteLine($"🔍 About to save connection: {System.Text.Json.JsonSerializer.Serialize(conn)}");
+                Console.WriteLine($"🔍 DateTime Kinds -> CreatedDate: {conn.CreatedDate?.Kind}, LastUpdateDate: {conn.LastUpdateDate?.Kind}");
                 _db.Add(conn);
                 await _db.SaveChangesAsync();
                 Console.WriteLine("✅ Connection saved successfully");

@@ -12,6 +12,10 @@ using MyDrReferral.Service.Models;
 using MyDrReferral.Service.Services;
 using System.Text;
 
+// Normalize Npgsql timestamp behavior across environments (EC2 vs Local)
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+AppContext.SetSwitch("Npgsql.DisableDateTimeInfinityConversions", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -39,7 +43,8 @@ builder.Services.AddCors(options =>
 
 #region Dependency Injections
 // Force RDS IP connection string override - USE NEW PUBLIC SUBNET RDS
-var connectionString = "Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;";
+//var connectionString = "Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;";
+var connectionString = "Host=localhost;Database=my-dr-referral-db;Username=postgres;Password=123;";
 
 Console.WriteLine($"🔧 USING NEW PUBLIC SUBNET RDS: {connectionString.Substring(0, Math.Min(50, connectionString.Length))}...");
 
