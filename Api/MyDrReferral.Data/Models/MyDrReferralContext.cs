@@ -101,7 +101,6 @@ namespace MyDrReferral.Data.Models
         {
             Console.WriteLine("=== FixDateTimes START ===");
             int fixedCount = 0;
-            int totalChecked = 0;
             
             foreach (var entry in ChangeTracker.Entries())
             {

@@ -12,7 +12,9 @@ namespace MyDrReferral.Data.Interceptors
             CommandEventData eventData,
             InterceptionResult<DbDataReader> result)
         {
-            Console.WriteLine($"🚨 ReaderExecuting: CommandText = {command.CommandText?.Substring(0, Math.Min(100, command.CommandText.Length ?? 0))}");
+            var cmdText = command.CommandText ?? "";
+            var preview = cmdText.Length > 100 ? cmdText.Substring(0, 100) : cmdText;
+            Console.WriteLine($"🚨 ReaderExecuting: CommandText = {preview}");
             FixDateTimeParameters(command);
             return base.ReaderExecuting(command, eventData, result);
         }
@@ -23,7 +25,9 @@ namespace MyDrReferral.Data.Interceptors
             InterceptionResult<DbDataReader> result,
             CancellationToken cancellationToken = default)
         {
-            Console.WriteLine($"🚨 ReaderExecutingAsync: CommandText = {command.CommandText?.Substring(0, Math.Min(100, command.CommandText.Length ?? 0))}");
+            var cmdText = command.CommandText ?? "";
+            var preview = cmdText.Length > 100 ? cmdText.Substring(0, 100) : cmdText;
+            Console.WriteLine($"🚨 ReaderExecutingAsync: CommandText = {preview}");
             FixDateTimeParameters(command);
             return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
         }
@@ -33,7 +37,9 @@ namespace MyDrReferral.Data.Interceptors
             CommandEventData eventData,
             InterceptionResult<int> result)
         {
-            Console.WriteLine($"🚨 NonQueryExecuting: CommandText = {command.CommandText?.Substring(0, Math.Min(100, command.CommandText.Length ?? 0))}");
+            var cmdText = command.CommandText ?? "";
+            var preview = cmdText.Length > 100 ? cmdText.Substring(0, 100) : cmdText;
+            Console.WriteLine($"🚨 NonQueryExecuting: CommandText = {preview}");
             FixDateTimeParameters(command);
             return base.NonQueryExecuting(command, eventData, result);
         }
@@ -44,7 +50,9 @@ namespace MyDrReferral.Data.Interceptors
             InterceptionResult<int> result,
             CancellationToken cancellationToken = default)
         {
-            Console.WriteLine($"🚨 NonQueryExecutingAsync: CommandText = {command.CommandText?.Substring(0, Math.Min(100, command.CommandText.Length ?? 0))}");
+            var cmdText = command.CommandText ?? "";
+            var preview = cmdText.Length > 100 ? cmdText.Substring(0, 100) : cmdText;
+            Console.WriteLine($"🚨 NonQueryExecutingAsync: CommandText = {preview}");
             FixDateTimeParameters(command);
             return base.NonQueryExecutingAsync(command, eventData, result, cancellationToken);
         }
