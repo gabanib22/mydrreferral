@@ -219,41 +219,6 @@ jobs:
           source: "Api/mydrreferral-api.tar.gz"
           target: "/var/www/mydrreferral/Api/"
 
-      - name: Run Database Migrations
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            echo "🔧 Running database migrations..."
-            cd /var/www/mydrreferral/Api/Api
-            
-            # Check if .NET is available
-            if ! command -v dotnet &> /dev/null; then
-              echo "Installing .NET..."
-              curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 8.0
-              export DOTNET_ROOT=$HOME/.dotnet
-              export PATH=$PATH:$HOME/.dotnet
-            fi
-            
-            # Install EF tools if not available
-            if ! command -v dotnet-ef &> /dev/null; then
-              echo "Installing Entity Framework tools..."
-              dotnet tool install --global dotnet-ef --version 8.0.0
-              export PATH="$PATH:$HOME/.dotnet/tools"
-            fi
-            
-            # Verify EF tools
-            echo "Verifying EF tools..."
-            dotnet-ef --version
-            
-            # Run migrations with explicit project files
-            echo "Running migrations..."
-            dotnet ef database update --project MyDrReferral.Data.csproj --startup-project MyDrReferral.Api.csproj --connection "Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;" --verbose
-            
-            echo "✅ Migrations completed"
-
       - name: Extract and start API
         uses: appleboy/ssh-action@v1.0.0
         with:
