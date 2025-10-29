@@ -15,6 +15,7 @@ using System.Text;
 
 // MUST set Npgsql switches BEFORE creating WebApplication builder
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+Console.WriteLine("✅ Npgsql.EnableLegacyTimestampBehavior = true (set via AppContext)");
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,7 +57,9 @@ builder.Services.AddDbContext<MyDrReferralContext>(options =>
     });
     
     // Add interceptor to fix DateTime parameters right before SQL execution
-    options.AddInterceptors(new DateTimeInterceptor());
+    var interceptor = new DateTimeInterceptor();
+    options.AddInterceptors(interceptor);
+    Console.WriteLine("✅ DateTimeInterceptor registered");
 });
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
