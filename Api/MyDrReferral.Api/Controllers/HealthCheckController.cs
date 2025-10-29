@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using MyDrReferral.Data.Models;
 
 namespace MyDrReferral.Api.Controllers
@@ -10,13 +10,6 @@ namespace MyDrReferral.Api.Controllers
     [AllowAnonymous] // Allow anonymous access for health checks
     public class HealthCheckController : Controller
     {
-        private readonly MyDrReferralContext _db;
-
-        public HealthCheckController(MyDrReferralContext db)
-        {
-            _db = db;
-        }
-
         [HttpGet("success")]
         public IActionResult Index()
         {
@@ -29,6 +22,9 @@ namespace MyDrReferral.Api.Controllers
         {
             try
             {
+                // Get DbContext from HttpContext - always available
+                var db = HttpContext.RequestServices.GetRequiredService<MyDrReferralContext>();
+
                 // Create test entity with DateTime.Now (Local) to reproduce the issue
                 var testEntity = new TestDateTime
                 {
@@ -37,8 +33,8 @@ namespace MyDrReferral.Api.Controllers
                     NullableDate = DateTime.Now  // This will be Local - the problem!
                 };
 
-                _db.TestDateTime.Add(testEntity);
-                await _db.SaveChangesAsync();
+                db.TestDateTime.Add(testEntity);
+                await db.SaveChangesAsync();
 
                 return Ok(new
                 {
