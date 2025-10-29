@@ -66,8 +66,8 @@ namespace MyDrReferral.Service.Services
                     ReceiverId = connection.ReceiverId,
                     Notes = connection.Notes,
                     CreatedBy = connection.CreatedBy,
-                    CreatedDate = DateTime.Now,
-                    LastUpdateDate = DateTime.Now,
+                    CreatedDate = DateTime.UtcNow,  // Use UTC for PostgreSQL
+                    LastUpdateDate = DateTime.UtcNow,  // Use UTC for PostgreSQL
                     IsAccepted = false,
                     IsRejected = false,
                     IsDeleted = false
@@ -115,7 +115,7 @@ namespace MyDrReferral.Service.Services
                 {
                     connection.IsAccepted = connectionRequest.IsAccepted;
                     connection.IsRejected = connectionRequest.IsAccepted ? false : true;
-                    connection.LastUpdateDate = DateTime.Now;
+                    connection.LastUpdateDate = DateTime.UtcNow;
                     await _db.SaveChangesAsync();
                     res.IsSuccess = true;
                     res.Message.Add("Connection request " + (connection.IsAccepted == true ? "Accepted" : "Rejected") + " successfully");
@@ -157,7 +157,7 @@ namespace MyDrReferral.Service.Services
                 {
                     connection.IsAccepted = true;
                     connection.IsRejected = false;
-                    connection.LastUpdateDate = DateTime.Now;
+                    connection.LastUpdateDate = DateTime.UtcNow;
                     await _db.SaveChangesAsync();
                     res.IsSuccess = true;
                     res.Message.Add("Connection request Accepted successfully");
