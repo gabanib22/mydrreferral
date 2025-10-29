@@ -96,22 +96,25 @@ namespace MyDrReferral.Data.Models
                 {
                     var value = prop.CurrentValue;
 
-                    // ✅ Single DateTime
+                    // ✅ Single DateTime - FORCE to UTC regardless of current Kind
                     if (value is DateTime dt)
                     {
-                        if (dt.Kind != DateTimeKind.Utc)
-                        {
-                            prop.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc).ToUniversalTime();
-                        }
+                        // Always convert to UTC - be aggressive about it
+                        prop.CurrentValue = dt.Kind == DateTimeKind.Utc 
+                            ? dt 
+                            : DateTime.SpecifyKind(dt.ToUniversalTime(), DateTimeKind.Utc);
                     }
 
-                    // ✅ Nullable DateTime
+                    // ✅ Nullable DateTime - FORCE to UTC regardless of current Kind
                     else if (value is DateTime?)
                     {
                         DateTime? ndtValue = (DateTime?)value;
-                        if (ndtValue.HasValue && ndtValue.Value.Kind != DateTimeKind.Utc)
+                        if (ndtValue.HasValue)
                         {
-                            prop.CurrentValue = (DateTime?)DateTime.SpecifyKind(ndtValue.Value, DateTimeKind.Utc).ToUniversalTime();
+                            var dtValue = ndtValue.Value;
+                            prop.CurrentValue = dtValue.Kind == DateTimeKind.Utc
+                                ? dtValue
+                                : DateTime.SpecifyKind(dtValue.ToUniversalTime(), DateTimeKind.Utc);
                         }
                     }
 
