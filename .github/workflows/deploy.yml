@@ -69,7 +69,7 @@ jobs:
       - name: Build API
         run: |
           cd Api
-          dotnet build --configuration Release --no-restore
+          dotnet build MyDrReferral.Api/MyDrReferral.Api.csproj --configuration Release --no-restore
 
       - name: Publish API
         run: |
