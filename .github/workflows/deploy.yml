@@ -219,6 +219,29 @@ jobs:
           source: "Api/mydrreferral-api.tar.gz"
           target: "/var/www/mydrreferral/Api/"
 
+      - name: Run Database Migrations
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "🔧 Running database migrations..."
+            cd /var/www/mydrreferral/Api/Api
+            
+            # Install EF tools if not available
+            if ! command -v dotnet-ef &> /dev/null; then
+              echo "Installing Entity Framework tools..."
+              dotnet tool install --global dotnet-ef --version 8.0.0
+              export PATH="$PATH:$HOME/.dotnet/tools"
+            fi
+            
+            # Run migrations
+            echo "Running migrations..."
+            dotnet ef database update --connection "Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;" --verbose
+            
+            echo "✅ Migrations completed"
+
       - name: Extract and start API
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -464,68 +487,9 @@ jobs:
             export ASPNETCORE_ENVIRONMENT=Production
             export ASPNETCORE_URLS=http://+:5000
             
-            # Run database migrations before starting API
-            echo "🔧 Running database migrations..."
+            # Set database connection string
+            echo "🔧 Setting database connection..."
             export ConnectionStrings__DefaultConnection="Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
-            
-            # Install EF tools if not available
-            if ! command -v dotnet-ef &> /dev/null; then
-              echo "Installing Entity Framework tools..."
-              # Change to home directory to avoid multiple project files issue
-              cd $HOME
-              $DOTNET_CMD tool install --global dotnet-ef --version 8.0.0
-              export PATH="$PATH:$HOME/.dotnet/tools"
-              # Return to API directory
-              cd "$API_DIR"
-            fi
-            
-            # Ensure EF tools can find .NET runtime
-            echo "🔧 Verifying EF tools can find .NET runtime..."
-            dotnet-ef --version
-            
-            # Test migration project files exist
-            echo "🔍 Checking migration project files..."
-            if [ -f "MyDrReferral.Data.csproj" ]; then
-              echo "✅ Data project found: MyDrReferral.Data.csproj"
-            else
-              echo "❌ Data project not found: MyDrReferral.Data.csproj"
-              echo "Available .csproj files:"
-              find . -name "*.csproj" -type f
-              exit 1
-            fi
-            
-            if [ -f "MyDrReferral.Api.csproj" ]; then
-              echo "✅ API project found: MyDrReferral.Api.csproj"
-            else
-              echo "❌ API project not found: MyDrReferral.Api.csproj"
-              echo "Available .csproj files:"
-              find . -name "*.csproj" -type f
-              exit 1
-            fi
-            
-            # Run migrations from home directory to avoid multiple project files issue
-            echo "Running database update..."
-            echo "Migration command: $DOTNET_CMD ef database update --project $API_DIR/MyDrReferral.Data.csproj --startup-project $API_DIR/MyDrReferral.Api.csproj --connection \"$ConnectionStrings__DefaultConnection\" --verbose"
-            
-            # Change to home directory to avoid multiple project files issue
-            cd $HOME
-            
-            # Run migration with direct error output
-            if $DOTNET_CMD ef database update --project "$API_DIR/MyDrReferral.Data.csproj" --startup-project "$API_DIR/MyDrReferral.Api.csproj" --connection "$ConnectionStrings__DefaultConnection" --verbose; then
-              echo "✅ Database migrations completed successfully"
-            else
-              echo "❌ Database migrations failed with exit code $?"
-              echo "Migration error details:"
-              echo "Connection string: $ConnectionStrings__DefaultConnection"
-              echo "API directory: $API_DIR"
-              echo "Working directory: $(pwd)"
-              echo "Available .csproj files:"
-              find "$API_DIR" -name "*.csproj" -type f
-              exit 1
-            fi
-            
-            # Return to API directory for starting the API
-            cd "$API_DIR"
             
             # Start the API
             echo "Starting API with: $DOTNET_CMD MyDrReferral.Api.dll"
@@ -646,15 +610,6 @@ jobs:
             # Check if API is actually running
             echo "🔍 Checking if API process is running..."
             ps aux | grep -i mydrreferral || echo "No MyDrReferral process found"
-            
-            # Try to manually test the migration command
-            echo "🔍 Testing migration command manually..."
-            cd /var/www/mydrreferral/Api/Api
-            echo "Current directory: $(pwd)"
-            echo "Testing migration from home directory..."
-            cd $HOME
-            echo "Testing migration command:"
-            timeout 60 dotnet ef database update --project "/var/www/mydrreferral/Api/Api/MyDrReferral.Data.csproj" --startup-project "/var/www/mydrreferral/Api/Api/MyDrReferral.Api.csproj" --connection "Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;" --verbose || echo "Migration test failed"
             
             # Try to manually start the API to see detailed errors
             echo "🔍 Trying to manually start API to see detailed errors..."
