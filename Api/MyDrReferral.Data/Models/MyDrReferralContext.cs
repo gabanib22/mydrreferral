@@ -71,24 +71,28 @@ namespace MyDrReferral.Data.Models
 
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            Console.WriteLine($"🚀 SaveChangesAsync(CancellationToken) called - Thread ID: {System.Threading.Thread.CurrentThread.ManagedThreadId}");
             FixDateTimes();
             return base.SaveChangesAsync(cancellationToken);
         }
 
         public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
         {
+            Console.WriteLine($"🚀 SaveChangesAsync(bool, CancellationToken) called - acceptAllChangesOnSuccess: {acceptAllChangesOnSuccess}");
             FixDateTimes();
             return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
 
         public override int SaveChanges()
         {
+            Console.WriteLine($"🚀 SaveChanges() called");
             FixDateTimes();
             return base.SaveChanges();
         }
 
         public override int SaveChanges(bool acceptAllChangesOnSuccess)
         {
+            Console.WriteLine($"🚀 SaveChanges(bool) called - acceptAllChangesOnSuccess: {acceptAllChangesOnSuccess}");
             FixDateTimes();
             return base.SaveChanges(acceptAllChangesOnSuccess);
         }
@@ -97,6 +101,7 @@ namespace MyDrReferral.Data.Models
         {
             Console.WriteLine("=== FixDateTimes START ===");
             int fixedCount = 0;
+            int totalChecked = 0;
             
             foreach (var entry in ChangeTracker.Entries())
             {
