@@ -12,10 +12,6 @@ using MyDrReferral.Service.Models;
 using MyDrReferral.Service.Services;
 using System.Text;
 
-// MUST set Npgsql switches BEFORE any Npgsql operations (very first lines)
-AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
-AppContext.SetSwitch("Npgsql.DisableDateTimeInfinityConversions", true);
-
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -251,7 +247,7 @@ app.Use(async (context, next) =>
             details = ex.ToString(),
             path = context.Request.Path,
             method = context.Request.Method,
-            timestamp = DateTime.UtcNow.ToUniversalTime()
+            timestamp = DateTime.Now
         };
         
         await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(errorResponse));

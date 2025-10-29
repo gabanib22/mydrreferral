@@ -50,7 +50,7 @@ namespace MyDrReferral.Service.Services
                 Description = _error.Description,
                 Response = _error.Response,
                 CreatedBy = currUserId,
-                CreatedOn = DateTime.UtcNow.ToUniversalTime()
+                CreatedOn = DateTime.Now
             };
 
             result = true;
