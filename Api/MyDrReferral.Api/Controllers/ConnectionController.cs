@@ -104,7 +104,7 @@ public class ConnectionController : Controller
             // Set the sender ID to current user
             connection.SenderId = int.Parse(currentUserIdInt);
             connection.CreatedBy = int.Parse(currentUserIdInt);
-            connection.CreatedDate = DateTime.Now;
+            connection.CreatedDate = DateTime.UtcNow;
             connection.IsAccepted = false;
             connection.IsRejected = false;
             connection.IsDeleted = false;

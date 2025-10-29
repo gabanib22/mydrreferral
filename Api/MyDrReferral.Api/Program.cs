@@ -250,7 +250,7 @@ app.Use(async (context, next) =>
             details = ex.ToString(),
             path = context.Request.Path,
             method = context.Request.Method,
-            timestamp = DateTime.Now
+            timestamp = DateTime.UtcNow
         };
         
         await context.Response.WriteAsync(System.Text.Json.JsonSerializer.Serialize(errorResponse));
