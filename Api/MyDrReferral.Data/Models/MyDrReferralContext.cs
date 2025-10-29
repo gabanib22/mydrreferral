@@ -44,10 +44,22 @@ namespace MyDrReferral.Data.Models
             return await base.SaveChangesAsync(cancellationToken);
         }
 
+        public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+        {
+            ConvertLocalDateTimesToUtc();
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+
         public override int SaveChanges()
         {
             ConvertLocalDateTimesToUtc();
             return base.SaveChanges();
+        }
+
+        public override int SaveChanges(bool acceptAllChangesOnSuccess)
+        {
+            ConvertLocalDateTimesToUtc();
+            return base.SaveChanges(acceptAllChangesOnSuccess);
         }
 
         private void ConvertLocalDateTimesToUtc()
