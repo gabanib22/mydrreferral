@@ -337,6 +337,9 @@ jobs:
             set -e  # Exit on any error
             set -x  # Print commands as they execute
             
+            # Redirect all output to log file for debugging
+            exec > >(tee -a /var/log/mydrreferral-startup.log) 2>&1
+            
             echo "Starting MyDrReferral API..."
             echo "Current directory: $(pwd)"
             echo "Available files:"
