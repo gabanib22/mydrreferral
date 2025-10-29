@@ -42,11 +42,11 @@ builder.Services.AddCors(options =>
 });
 
 #region Dependency Injections
-// Force RDS IP connection string override - USE NEW PUBLIC SUBNET RDS
-//var connectionString = "Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;";
-var connectionString = "Host=localhost;Database=my-dr-referral-db;Username=postgres;Password=123;";
+// Read connection string from configuration (appsettings.json / environment)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-Console.WriteLine($"🔧 USING NEW PUBLIC SUBNET RDS: {connectionString.Substring(0, Math.Min(50, connectionString.Length))}...");
+Console.WriteLine("🔧 Using configured DefaultConnection for PostgreSQL");
 
 builder.Services.AddDbContext<MyDrReferralContext>(options =>
 {
