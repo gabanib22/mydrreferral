@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using MyDrReferral.Data.Models;
 
 namespace MyDrReferral.Api.Controllers
@@ -22,8 +23,8 @@ namespace MyDrReferral.Api.Controllers
             return Ok("Success");
         }
 
-        [HttpGet("test-datetime")]
-        [HttpPost("test-datetime")]
+        [HttpGet("test")]
+        [HttpPost("test")]
         public async Task<IActionResult> TestDateTime()
         {
             try
@@ -57,6 +58,7 @@ namespace MyDrReferral.Api.Controllers
                     success = false,
                     message = ex.Message,
                     innerException = ex.InnerException?.Message,
+                    innerStackTrace = ex.InnerException?.StackTrace,
                     stackTrace = ex.StackTrace
                 });
             }
