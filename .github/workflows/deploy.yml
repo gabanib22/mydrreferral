@@ -104,10 +104,29 @@ jobs:
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            echo "🔧 Extracting and starting API..."
+            echo "🔧 Starting API deployment..."
             cd /var/www/mydrreferral/Api/
-            tar -xzf mydrreferral-api.tar.gz
-            rm mydrreferral-api.tar.gz
+            
+            # Extract if tar.gz exists (SCP might have extracted already)
+            if [ -f mydrreferral-api.tar.gz ]; then
+              echo "Extracting tar.gz..."
+              tar -xzf mydrreferral-api.tar.gz
+              rm mydrreferral-api.tar.gz
+            fi
+            
+            # Find the DLL location
+            if [ -f MyDrReferral.Api.dll ]; then
+              echo "✅ Found MyDrReferral.Api.dll in current directory"
+              API_DIR=$(pwd)
+            elif [ -f Api/MyDrReferral.Api.dll ]; then
+              echo "✅ Found MyDrReferral.Api.dll in Api/ subdirectory"
+              cd Api/
+              API_DIR=$(pwd)
+            else
+              echo "❌ Cannot find MyDrReferral.Api.dll"
+              find . -name "MyDrReferral.Api.dll" -type f
+              exit 1
+            fi
             
             # Install .NET if not found
             if ! command -v dotnet &> /dev/null; then
@@ -144,18 +163,39 @@ jobs:
             }
             EOF
             
-            # Restart services
-            sudo systemctl restart nginx
+            # Stop any running API processes
+            echo "Stopping existing API processes..."
             sudo systemctl stop mydrreferral-api.service || true
-            sudo systemctl start mydrreferral-api.service || true
+            sudo pkill -f "dotnet.*MyDrReferral.Api.dll" || true
+            sleep 2
             
-            # Start API directly if service fails
-            if ! sudo systemctl is-active --quiet mydrreferral-api.service; then
-              echo "Starting API directly..."
-              export ASPNETCORE_ENVIRONMENT=Production
-              export ASPNETCORE_URLS=http://+:5000
-              export ConnectionStrings__DefaultConnection="Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
-              nohup dotnet MyDrReferral.Api.dll > /var/log/mydrreferral-api.log 2>&1 &
+            # Restart Nginx
+            sudo systemctl restart nginx
+            
+            # Start API
+            cd "$API_DIR"
+            echo "Starting API from: $(pwd)"
+            export ASPNETCORE_ENVIRONMENT=Production
+            export ASPNETCORE_URLS=http://+:5000
+            export ConnectionStrings__DefaultConnection="Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
+            
+            # Kill any remaining processes on port 5000
+            sudo lsof -ti:5000 | xargs sudo kill -9 || true
+            sleep 1
+            
+            # Start API in background
+            nohup dotnet MyDrReferral.Api.dll > /var/log/mydrreferral-api.log 2>&1 &
+            API_PID=$!
+            echo "API started with PID: $API_PID"
+            
+            # Wait a bit and check if it's still running
+            sleep 3
+            if ps -p $API_PID > /dev/null; then
+              echo "✅ API is running"
+            else
+              echo "❌ API process died. Checking logs:"
+              tail -50 /var/log/mydrreferral-api.log
+              exit 1
             fi
 
   # Health Check
