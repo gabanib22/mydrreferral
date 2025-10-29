@@ -58,16 +58,26 @@ namespace MyDrReferral.Data.Models
                 {
                     foreach (var prop in entry.Properties)
                     {
-                        if (prop.CurrentValue is DateTime dt && dt.Kind == DateTimeKind.Local)
+                        // Force ALL DateTime to UTC - be aggressive
+                        if (prop.CurrentValue != null)
                         {
-                            prop.CurrentValue = dt.ToUniversalTime();
-                        }
-                        else if (prop.CurrentValue != null)
-                        {
-                            var nullableDt = prop.CurrentValue as DateTime?;
-                            if (nullableDt != null && nullableDt.HasValue && nullableDt.Value.Kind == DateTimeKind.Local)
+                            // Handle non-nullable DateTime
+                            if (prop.CurrentValue.GetType() == typeof(DateTime))
                             {
-                                prop.CurrentValue = nullableDt.Value.ToUniversalTime();
+                                DateTime dt = (DateTime)prop.CurrentValue;
+                                if (dt.Kind != DateTimeKind.Utc)
+                                {
+                                    prop.CurrentValue = DateTime.SpecifyKind(dt.ToUniversalTime(), DateTimeKind.Utc);
+                                }
+                            }
+                            // Handle nullable DateTime
+                            else if (prop.CurrentValue.GetType() == typeof(DateTime?))
+                            {
+                                DateTime? nullableDt = (DateTime?)prop.CurrentValue;
+                                if (nullableDt.HasValue && nullableDt.Value.Kind != DateTimeKind.Utc)
+                                {
+                                    prop.CurrentValue = (DateTime?)DateTime.SpecifyKind(nullableDt.Value.ToUniversalTime(), DateTimeKind.Utc);
+                                }
                             }
                         }
                     }

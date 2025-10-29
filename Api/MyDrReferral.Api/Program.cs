@@ -12,10 +12,10 @@ using MyDrReferral.Service.Models;
 using MyDrReferral.Service.Services;
 using System.Text;
 
-var builder = WebApplication.CreateBuilder(args);
-
-// Configure Npgsql to handle DateTime properly
+// MUST set Npgsql switches BEFORE creating WebApplication builder
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
+var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
