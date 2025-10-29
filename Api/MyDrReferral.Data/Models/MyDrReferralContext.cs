@@ -2,7 +2,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -39,7 +38,7 @@ namespace MyDrReferral.Data.Models
                       .Metadata.SetAfterSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
             });
 
-            // ✅ Apply UTC ValueConverter globally for DateTime & DateTime?
+            // 🔹 Apply UTC ValueConverter globally for DateTime & DateTime?
             var dateTimeConverter = new ValueConverter<DateTime, DateTime>(
                 v => v.Kind == DateTimeKind.Utc ? v : v.ToUniversalTime(),
                 v => DateTime.SpecifyKind(v, DateTimeKind.Utc)
@@ -68,10 +67,22 @@ namespace MyDrReferral.Data.Models
             return base.SaveChanges();
         }
 
+        public override int SaveChanges(bool acceptAllChangesOnSuccess)
+        {
+            ConvertAllDateTimesToUtc();
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+
         public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             ConvertAllDateTimesToUtc();
             return base.SaveChangesAsync(cancellationToken);
+        }
+
+        public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+        {
+            ConvertAllDateTimesToUtc();
+            return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
 
         private void ConvertAllDateTimesToUtc()
@@ -85,53 +96,51 @@ namespace MyDrReferral.Data.Models
                 {
                     var value = prop.CurrentValue;
 
-                    // Single DateTime
+                    // ✅ Single DateTime
                     if (value is DateTime dt)
                     {
                         if (dt.Kind != DateTimeKind.Utc)
+                        {
                             prop.CurrentValue = DateTime.SpecifyKind(dt, DateTimeKind.Utc).ToUniversalTime();
+                        }
                     }
 
-                    // Nullable DateTime
-                    else if (value is DateTime ? ndt && ndt.HasValue)
+                    // ✅ Nullable DateTime
+                    else if (value is DateTime?)
                     {
-                        if (ndt.Value.Kind != DateTimeKind.Utc)
-                            prop.CurrentValue = DateTime.SpecifyKind(ndt.Value, DateTimeKind.Utc).ToUniversalTime();
+                        DateTime? ndtValue = (DateTime?)value;
+                        if (ndtValue.HasValue && ndtValue.Value.Kind != DateTimeKind.Utc)
+                        {
+                            prop.CurrentValue = (DateTime?)DateTime.SpecifyKind(ndtValue.Value, DateTimeKind.Utc).ToUniversalTime();
+                        }
                     }
 
-                    // Array of DateTime
+                    // ✅ Array of DateTime
                     else if (value is DateTime[] dtArray && dtArray.Length > 0)
                     {
-                        prop.CurrentValue = dtArray.Select(x =>
-                            DateTime.SpecifyKind(x, DateTimeKind.Utc).ToUniversalTime()).ToArray();
+                        prop.CurrentValue = dtArray
+                            .Select(x => DateTime.SpecifyKind(x, DateTimeKind.Utc).ToUniversalTime())
+                            .ToArray();
                     }
 
-                    // List of DateTime
-                    else if (value is IList<DateTime> dtList && dtList.Count > 0)
+                    // ✅ List<DateTime>
+                    else if (value is List<DateTime> dtList && dtList.Count > 0)
                     {
-                        prop.CurrentValue = dtList.Select(x =>
-                            DateTime.SpecifyKind(x, DateTimeKind.Utc).ToUniversalTime()).ToList();
-                    }
-
-                    // IEnumerable fallback (rare cases like arrays or navigation lists)
-                    else if (value is IEnumerable enumerable)
-                    {
-                        var list = new List<object>();
-                        bool anyDateTime = false;
-
-                        foreach (var item in enumerable)
+                        for (int i = 0; i < dtList.Count; i++)
                         {
-                            if (item is DateTime d)
-                            {
-                                anyDateTime = true;
-                                list.Add(DateTime.SpecifyKind(d, DateTimeKind.Utc).ToUniversalTime());
-                            }
-                            else
-                                list.Add(item);
+                            var d = dtList[i];
+                            if (d.Kind != DateTimeKind.Utc)
+                                dtList[i] = DateTime.SpecifyKind(d, DateTimeKind.Utc).ToUniversalTime();
                         }
+                    }
 
-                        if (anyDateTime)
-                            prop.CurrentValue = list.ToArray();
+                    // ✅ IEnumerable<DateTime> fallback
+                    else if (value is IEnumerable<DateTime> dateEnumerable)
+                    {
+                        var fixedList = dateEnumerable
+                            .Select(d => DateTime.SpecifyKind(d, DateTimeKind.Utc).ToUniversalTime())
+                            .ToList();
+                        prop.CurrentValue = fixedList;
                     }
                 }
             }
