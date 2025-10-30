@@ -52,6 +52,9 @@ public class RefferController : Controller
                                      // Patient information
                                      PatientName = patient.Name,
                                      PatientId = patient.Id,
+                                     PatientPhone = patient.Phone,
+                                     PatientEmail = patient.Email,
+                                     PatientAddress = patient.Address,
                                      
                                      // Receiving doctor information
                                      DoctorName = string.Concat(user.FirstName, " ", user.LastName),
@@ -127,6 +130,9 @@ public class RefferController : Controller
                                      // Patient information
                                      PatientName = patient.Name,
                                      PatientId = patient.Id,
+                                     PatientPhone = patient.Phone,
+                                     PatientEmail = patient.Email,
+                                     PatientAddress = patient.Address,
                                      
                                      // Referring doctor information
                                      DoctorName = string.Concat(user.FirstName, " ", user.LastName),

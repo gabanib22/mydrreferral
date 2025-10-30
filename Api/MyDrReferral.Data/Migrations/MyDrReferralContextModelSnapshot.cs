@@ -292,6 +292,15 @@ namespace MyDrReferral.Data.Migrations
                     b.Property<int>("RrlfById")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Phone")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Address")
+                        .HasColumnType("text");
+
                     b.HasKey("Id");
 
                     b.ToTable("Patient");

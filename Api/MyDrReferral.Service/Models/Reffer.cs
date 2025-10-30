@@ -12,6 +12,9 @@ namespace MyDrReferral.Service.Models
         public int ConnectionId { get; set; }
         //public int PatientId { get; set; }
         public string? PatientName { get; set; }
+        public string? PatientPhone { get; set; }
+        public string? PatientEmail { get; set; }
+        public string? PatientAddress { get; set; }
         public string? Notes { get; set; }
         public int RflAmount { get; set; }
         public DateTime? RrlfDate { get; set; }

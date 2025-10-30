@@ -12,6 +12,12 @@ namespace MyDrReferral.Api.Model
         [Required]
         [JsonPropertyName("patient_name")]
         public string? PatientName{ get; set; }
+        [JsonPropertyName("patient_phone")]
+        public string? PatientPhone { get; set; }
+        [JsonPropertyName("patient_email")]
+        public string? PatientEmail { get; set; }
+        [JsonPropertyName("patient_address")]
+        public string? PatientAddress { get; set; }
         //public int PatientId { get; set; }
         [JsonPropertyName("notes")]
         public string? Notes { get; set; }

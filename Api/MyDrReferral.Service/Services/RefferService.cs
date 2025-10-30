@@ -40,7 +40,10 @@ namespace MyDrReferral.Service.Services
                     Name = reffer.PatientName,
                     RrlfById = (await _userService.GetCurrentUser()).UserId,
                     //RrlfById = 1234,
-                    CreatedDate = DateTime.UtcNow
+                    CreatedDate = DateTime.UtcNow,
+                    Phone = reffer.PatientPhone,
+                    Email = reffer.PatientEmail,
+                    Address = reffer.PatientAddress
 
                 };
                 _db.Add(patientData);
