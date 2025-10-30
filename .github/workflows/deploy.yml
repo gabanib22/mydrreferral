@@ -107,135 +107,119 @@ jobs:
           timeout: 5m
           command_timeout: 5m
           script: |
-            echo "🔧 Starting API deployment..."
-            cd /var/www/mydrreferral/Api/
-            
-            # Prepare fresh directory for atomic replace
-            NEW_DIR="/var/www/mydrreferral/Api/new"
-            rm -rf "$NEW_DIR" || true
-            mkdir -p "$NEW_DIR"
-            
-            if [ -f mydrreferral-api.tar.gz ]; then
-              echo "Extracting tar.gz into $NEW_DIR..."
-              tar -xzf mydrreferral-api.tar.gz -C "$NEW_DIR"
-              rm -f mydrreferral-api.tar.gz
-              EXTRACTED=1
-            else
-              echo "⚠️ mydrreferral-api.tar.gz not found. Will try to use existing deployed DLL."
-              EXTRACTED=0
+            set -e
+            echo "🔧 Deploying API via systemd..."
+            BASE_DIR=/var/www/mydrreferral/Api
+            STAGE_DIR="$BASE_DIR/stage"
+            CURR_DIR="$BASE_DIR/current"
+            UNIT_FILE=/etc/systemd/system/mydrreferral-api.service
+            LOG_FILE=/tmp/mydrreferral-api.log
+
+            sudo mkdir -p "$BASE_DIR" "$STAGE_DIR"
+            cd "$BASE_DIR"
+
+            # Ensure tar is present (SCP step sets overwrite: true)
+            if [ ! -f mydrreferral-api.tar.gz ]; then
+              echo "❌ Archive missing: $BASE_DIR/mydrreferral-api.tar.gz"
+              ls -la "$BASE_DIR" || true
+              exit 1
             fi
-            
-            if [ "$EXTRACTED" = "1" ]; then
-              echo "Contents of new build:"
-              ls -lat "$NEW_DIR" | head -50
-              
-              # Determine API_DIR inside new
-              if [ -f "$NEW_DIR/MyDrReferral.Api.dll" ]; then
-                API_DIR="$NEW_DIR"
-              elif [ -f "$NEW_DIR/Api/MyDrReferral.Api.dll" ]; then
-                API_DIR="$NEW_DIR/Api"
-              else
-                echo "❌ Cannot find MyDrReferral.Api.dll in new build"
-                find "$NEW_DIR" -name "MyDrReferral.Api.dll" -type f | head -10
-                exit 1
-              fi
-              echo "Using API_DIR=$API_DIR (from extracted build)"
+
+            # Prepare stage and extract
+            rm -rf "$STAGE_DIR"/* || true
+            echo "Extracting to stage..."
+            tar -xzf mydrreferral-api.tar.gz -C "$STAGE_DIR"
+
+            # Determine API_DIR in stage
+            if [ -f "$STAGE_DIR/MyDrReferral.Api.dll" ]; then
+              NEW_API_DIR="$STAGE_DIR"
+            elif [ -f "$STAGE_DIR/Api/MyDrReferral.Api.dll" ]; then
+              NEW_API_DIR="$STAGE_DIR/Api"
             else
-              # Locate latest existing DLL under current path
-              echo "Searching for existing MyDrReferral.Api.dll under /var/www/mydrreferral/Api..."
-              DLL_PATH=$(find /var/www/mydrreferral/Api -name "MyDrReferral.Api.dll" -type f | head -1)
-              if [ -z "$DLL_PATH" ]; then
-                echo "❌ Could not locate MyDrReferral.Api.dll"
-                find /var/www/mydrreferral/Api -maxdepth 3 -type f | head -50
-                exit 1
-              fi
-              API_DIR=$(dirname "$DLL_PATH")
-              echo "Using API_DIR=$API_DIR (existing deployment)"
+              echo "❌ Could not locate MyDrReferral.Api.dll in stage"
+              find "$STAGE_DIR" -name "MyDrReferral.Api.dll" -type f | head -10
+              exit 1
             fi
-            
-            # Ensure .NET is available
+            echo "New build path: $NEW_API_DIR"
+
+            # Install .NET if needed
             if ! command -v dotnet &> /dev/null; then
-              echo "Installing .NET 8..."
+              echo "Installing .NET 8 runtime..."
               curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 8.0
+              echo 'export DOTNET_ROOT=$HOME/.dotnet' >> ~/.bashrc
+              echo 'export PATH=$PATH:$HOME/.dotnet' >> ~/.bashrc
               export DOTNET_ROOT=$HOME/.dotnet
               export PATH=$PATH:$HOME/.dotnet
             fi
-            
-            # Restart Nginx (ignore failures)
-            sudo systemctl restart nginx || true
-            
-            # Stop service
-            sudo systemctl stop mydrreferral-api.service || true
-            sleep 1
 
-            # Ensure port 5000 is free (try fuser, then ss, then netstat)
-            echo "Ensuring port 5000 is free..."
-            if command -v fuser >/dev/null 2>&1; then
-              sudo fuser -k 5000/tcp || true
-            else
-              if command -v ss >/dev/null 2>&1; then
-                PORT_PID=$(sudo ss -tulpn | awk '/:5000[ \t]/ {print $NF}' | sed 's/.*pid=\([0-9]*\).*/\1/' | head -1)
-              else
-                PORT_PID=$(sudo netstat -tulpn 2>/dev/null | awk '/:5000[ \t]/ {print $7}' | cut -d'/' -f1 | head -1)
-              fi
-              if [ -n "$PORT_PID" ]; then
-                echo "Killing PID $PORT_PID on port 5000"
-                sudo kill -9 "$PORT_PID" || true
-              fi
+            # Write/refresh systemd unit (mirrors rokda-hisab pattern)
+            echo "Writing systemd unit $UNIT_FILE"
+            sudo tee "$UNIT_FILE" > /dev/null <<EOF
+            [Unit]
+            Description=MyDrReferral API
+            After=network.target
+
+            [Service]
+            WorkingDirectory=$CURR_DIR
+            ExecStart=/bin/bash -lc 'export ASPNETCORE_ENVIRONMENT=Production ASPNETCORE_URLS=http://+:5000 ConnectionStrings__DefaultConnection="Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;" && exec dotnet $CURR_DIR/MyDrReferral.Api.dll'
+            Restart=always
+            RestartSec=5
+            SyslogIdentifier=mydrreferral-api
+            KillSignal=SIGINT
+            Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+
+            [Install]
+            WantedBy=multi-user.target
+            EOF
+
+            # Atomic swap current -> new
+            echo "Updating current build..."
+            sudo rm -rf "$CURR_DIR" || true
+            sudo mkdir -p "$CURR_DIR"
+            sudo cp -a "$NEW_API_DIR"/. "$CURR_DIR"/
+            echo "Current content:"
+            ls -la "$CURR_DIR" | head -50
+
+            # Nginx ensure and restart
+            if ! command -v nginx &> /dev/null; then
+              echo "Installing Nginx..."
+              sudo amazon-linux-extras install -y nginx1 >/dev/null 2>&1 || true
+              sudo systemctl enable nginx || true
             fi
-            # Kill any lingering app processes by name
-            sudo pkill -f "dotnet.*MyDrReferral.Api.dll" || true
-            sleep 1
-            
-            if [ "$EXTRACTED" = "1" ]; then
-              # Atomically replace current files
-              echo "Replacing current API files..."
-              rm -rf /var/www/mydrreferral/Api/current || true
-              mv "$NEW_DIR" /var/www/mydrreferral/Api/current
-              cd /var/www/mydrreferral/Api/current
-              # Recompute API_DIR inside current
-              if [ -f "/var/www/mydrreferral/Api/current/MyDrReferral.Api.dll" ]; then
-                API_DIR="/var/www/mydrreferral/Api/current"
-              elif [ -f "/var/www/mydrreferral/Api/current/Api/MyDrReferral.Api.dll" ]; then
-                API_DIR="/var/www/mydrreferral/Api/current/Api"
-              else
-                echo "❌ Cannot find MyDrReferral.Api.dll after move"
-                find /var/www/mydrreferral/Api/current -name "MyDrReferral.Api.dll" -type f | head -10
-                exit 1
-              fi
-            else
-              cd "$API_DIR"
-            fi
-            echo "Final API_DIR=$API_DIR"
-            
-            export ASPNETCORE_ENVIRONMENT=Production
-            export ASPNETCORE_URLS=http://+:5000
-            export ConnectionStrings__DefaultConnection="Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
-            
-            LOG_FILE=/tmp/mydrreferral-api.log
-            echo "Starting API from $(pwd) (DLL path: $API_DIR/MyDrReferral.Api.dll), logging to $LOG_FILE"
-            nohup dotnet "$API_DIR/MyDrReferral.Api.dll" > "$LOG_FILE" 2>&1 &
-            API_PID=$!
-            echo "API started with PID: $API_PID"
-            sleep 4
-            
-            echo "First 50 log lines (if any):"
-            head -50 "$LOG_FILE" || true
-            
-            if ps -p $API_PID > /dev/null; then
-              echo "✅ API process is running"
-              echo "Probing localhost endpoints..."
-              echo "- /api/healthcheck/success:"
-              curl -s http://localhost:5000/api/healthcheck/success || true
-              echo "\n- /api/healthcheck/info:"
-              curl -s http://localhost:5000/api/healthcheck/info || true
-              echo "\n- /api/healthcheck/test2:"
-              curl -s http://localhost:5000/api/healthcheck/test2 || true
-            else
-              echo "❌ API process died. Last 100 log lines:"
-              tail -100 "$LOG_FILE" || true
-              exit 1
-            fi
+            sudo tee /etc/nginx/conf.d/mydrreferral.conf > /dev/null <<NGINX
+            server {
+                listen 80;
+                server_name _;
+                location / {
+                    proxy_pass http://localhost:5000;
+                    proxy_http_version 1.1;
+                    proxy_set_header Upgrade $http_upgrade;
+                    proxy_set_header Connection keep-alive;
+                    proxy_set_header Host $host;
+                    proxy_set_header X-Real-IP $remote_addr;
+                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                    proxy_set_header X-Forwarded-Proto $scheme;
+                    proxy_cache_bypass $http_upgrade;
+                }
+            }
+            NGINX
+            sudo systemctl restart nginx || true
+
+            # Restart API via systemd
+            echo "Reloading systemd and restarting service..."
+            sudo systemctl daemon-reload
+            sudo systemctl enable mydrreferral-api.service || true
+            sudo systemctl restart mydrreferral-api.service
+
+            # Wait and verify
+            sleep 5
+            sudo systemctl status mydrreferral-api.service --no-pager || true
+            echo "Probing localhost endpoints..."
+            curl -s http://localhost:5000/api/healthcheck/success || true
+            echo
+            curl -s http://localhost:5000/api/healthcheck/info || true
+            echo
+            curl -s http://localhost:5000/api/healthcheck/test2 || true
 
   # Health Check
   health-check:
