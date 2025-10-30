@@ -267,16 +267,46 @@ jobs:
             # Wait and verify
             sleep 5
             sudo systemctl status mydrreferral-api.service --no-pager || true
-            echo "Listening ports (expect :5000):"
-            sudo ss -tlnp | grep -E ':5000' || true
+            echo "Listening ports (expect :80 and :5000 after nginx):"
+            sudo ss -tlnp | grep -E ':80|:5000' || true
             echo "Recent service logs:"
             sudo journalctl -u mydrreferral-api -n 120 --no-pager || true
-            echo "Probing localhost endpoints..."
+            # Install and configure Nginx to proxy 80 -> 5000
+            if ! command -v nginx &> /dev/null; then
+              echo "Installing Nginx..."
+              (sudo yum install -y nginx || sudo dnf install -y nginx || sudo amazon-linux-extras install -y nginx1) >/dev/null 2>&1 || true
+            fi
+            sudo systemctl enable nginx || true
+            sudo mkdir -p /etc/nginx/conf.d
+            sudo tee /etc/nginx/conf.d/mydrreferral.conf > /dev/null <<'NGINX'
+server {
+    listen 80;
+    server_name _;
+    location / {
+        proxy_pass http://localhost:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection keep-alive;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+NGINX
+            if ! sudo nginx -t; then
+              echo "❌ nginx config test failed"
+              sudo journalctl -u nginx -n 200 --no-pager || true
+              exit 1
+            fi
+            sudo systemctl restart nginx || true
+
+            echo "Probing localhost endpoints (80 and 5000)..."
+            curl -s http://localhost/api/healthcheck/success || true
+            echo
             curl -s http://localhost:5000/api/healthcheck/success || true
             echo
-            curl -s http://localhost:5000/api/healthcheck/info || true
-            echo
-            curl -s http://localhost:5000/api/healthcheck/test2 || true
 
   # Health Check
   health-check:
@@ -291,6 +321,10 @@ jobs:
           sleep 20
           echo "Testing API health..."
           for i in {1..5}; do
+            if curl -sf --connect-timeout 2 --max-time 5 http://${{ secrets.EC2_HOST }}/api/healthcheck/success; then
+              echo "✅ API is healthy on :80"
+              OK=1; break
+            fi
             if curl -sf --connect-timeout 2 --max-time 5 http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/success; then
               echo "✅ API is healthy on :5000"
               OK=1; break
@@ -299,7 +333,7 @@ jobs:
             sleep 5
           done
           if [ -z "$OK" ]; then
-            echo "❌ API not reachable on :5000"
+            echo "❌ API not reachable on :80 or :5000"
           fi
           
           echo ""
@@ -308,13 +342,15 @@ jobs:
           echo "========================================="
           
           echo "Trying GET first..."
-          GET_RESPONSE=$(curl -s --connect-timeout 2 --max-time 5 http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/test || echo "ERROR")
+          GET_RESPONSE=$(curl -s --connect-timeout 2 --max-time 5 http://${{ secrets.EC2_HOST }}/api/healthcheck/test || \
+                         curl -s --connect-timeout 2 --max-time 5 http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/test || echo "ERROR")
           echo "GET Response: $GET_RESPONSE"
           
           for i in {1..3}; do
             echo ""
             echo "Attempt $i: Calling test DateTime endpoint (POST)..."
-            RESPONSE=$(curl -s --connect-timeout 2 --max-time 8 -w "\nHTTP_STATUS:%{http_code}" -X POST http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/test 2>&1 || echo "HTTP_STATUS:000")
+            RESPONSE=$(curl -s --connect-timeout 2 --max-time 8 -w "\nHTTP_STATUS:%{http_code}" -X POST http://${{ secrets.EC2_HOST }}/api/healthcheck/test 2>&1 || \
+                       curl -s --connect-timeout 2 --max-time 8 -w "\nHTTP_STATUS:%{http_code}" -X POST http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/test 2>&1 || echo "HTTP_STATUS:000")
             HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2 || echo "000")
             BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d' | head -100)
             
@@ -339,6 +375,7 @@ jobs:
           done
           
           echo "❌ Could not reach endpoint (404). Checking if route exists..."
+          curl -v --connect-timeout 2 --max-time 8 http://${{ secrets.EC2_HOST }}/api/healthcheck/test 2>&1 | head -30 || true
           curl -v --connect-timeout 2 --max-time 8 http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/test 2>&1 | head -30 || true
 
       - name: Gather API diagnostics on EC2
@@ -362,7 +399,8 @@ jobs:
         if: always()
         run: |
           # Final quick probe: succeed if either endpoint responds
-          if curl -sf --connect-timeout 2 --max-time 5 http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/success; then
+          if curl -sf --connect-timeout 2 --max-time 5 http://${{ secrets.EC2_HOST }}/api/healthcheck/success || \
+             curl -sf --connect-timeout 2 --max-time 5 http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/success; then
             echo "✅ API became reachable"
             exit 0
           fi
