@@ -122,7 +122,10 @@ jobs:
           script: |
             echo "Checking ~/ for uploaded archive..."
             ls -la ~ | sed -n '1,50p'
-            # Normalize if a directory got created in home
+            echo "Checking ~/Api as well..."
+            ls -la ~/Api 2>/dev/null | sed -n '1,50p' || true
+            
+            # If a directory named like the file exists, try to find the inner tar
             if [ -d ~/mydrreferral-api.tar.gz ]; then
               INNER=$(find ~/mydrreferral-api.tar.gz -type f -name "*.tar.gz" | head -1)
               if [ -n "$INNER" ]; then
@@ -131,12 +134,28 @@ jobs:
                 rmdir ~/mydrreferral-api.tar.gz || true
               fi
             fi
+            
+            # If not found yet, search under home (handles ~/Api/mydrreferral-api.tar.gz cases)
+            if [ ! -f ~/mydrreferral-api.tar.gz ]; then
+              FOUND=$(find ~ -maxdepth 3 -type f -name "mydrreferral-api.tar.gz" | head -1)
+              if [ -z "$FOUND" ]; then
+                FOUND=$(find ~ -maxdepth 3 -type f -name "*.tar.gz" | head -1)
+              fi
+              if [ -n "$FOUND" ]; then
+                echo "Found archive at: $FOUND"
+                mv -f "$FOUND" ~/mydrreferral-api.tar.gz
+              fi
+            fi
+            
             if [ -f ~/mydrreferral-api.tar.gz ]; then
               echo "Moving archive into /var/www/mydrreferral/Api..."
               mv -f ~/mydrreferral-api.tar.gz /var/www/mydrreferral/Api/mydrreferral-api.tar.gz
+            else
+              echo "❌ Could not find archive under home"
             fi
+            
             echo "Verifying archive presence and checksum in target..."
-            ls -la /var/www/mydrreferral/Api | sed -n '1,50p'
+            ls -la /var/www/mydrreferral/Api | sed -n '1,80p'
             sha256sum /var/www/mydrreferral/Api/mydrreferral-api.tar.gz || true
 
       - name: Extract and start API
