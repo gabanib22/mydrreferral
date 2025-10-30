@@ -110,27 +110,33 @@ jobs:
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "Api/mydrreferral-api.tar.gz"
-          target: "/var/www/mydrreferral/Api/"
+          target: "~/"
           overwrite: true
 
-      - name: Verify archive on EC2
+      - name: Move and verify archive on EC2
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            echo "Verifying archive presence and checksum..."
-            ls -la /var/www/mydrreferral/Api
-            if [ -d /var/www/mydrreferral/Api/mydrreferral-api.tar.gz ]; then
-              echo "Normalizing: found directory named mydrreferral-api.tar.gz; moving inner tar.gz up one level..."
-              INNER=$(find /var/www/mydrreferral/Api/mydrreferral-api.tar.gz -type f -name "*.tar.gz" | head -1)
+            echo "Checking ~/ for uploaded archive..."
+            ls -la ~ | sed -n '1,50p'
+            # Normalize if a directory got created in home
+            if [ -d ~/mydrreferral-api.tar.gz ]; then
+              INNER=$(find ~/mydrreferral-api.tar.gz -type f -name "*.tar.gz" | head -1)
               if [ -n "$INNER" ]; then
-                mv "$INNER" /var/www/mydrreferral/Api/mydrreferral-api.tar.gz
-                rm -rf /var/www/mydrreferral/Api/mydrreferral-api.tar.gz/* || true
-                rmdir /var/www/mydrreferral/Api/mydrreferral-api.tar.gz || true
+                mv "$INNER" ~/mydrreferral-api.tar.gz
+                rm -rf ~/mydrreferral-api.tar.gz/* || true
+                rmdir ~/mydrreferral-api.tar.gz || true
               fi
             fi
+            if [ -f ~/mydrreferral-api.tar.gz ]; then
+              echo "Moving archive into /var/www/mydrreferral/Api..."
+              mv -f ~/mydrreferral-api.tar.gz /var/www/mydrreferral/Api/mydrreferral-api.tar.gz
+            fi
+            echo "Verifying archive presence and checksum in target..."
+            ls -la /var/www/mydrreferral/Api | sed -n '1,50p'
             sha256sum /var/www/mydrreferral/Api/mydrreferral-api.tar.gz || true
 
       - name: Extract and start API
@@ -344,4 +350,5 @@ jobs:
             echo "API: ${{ needs.deploy-api.result }}"
             echo "Health: ${{ needs.health-check.result }}"
             exit 1
+          fi
           fi
