@@ -138,32 +138,27 @@ jobs:
             # Restart Nginx (ignore failures)
             sudo systemctl restart nginx || true
             
-            # Restart API service if it exists; otherwise start directly
-            if systemctl list-unit-files | grep -q '^mydrreferral-api.service'; then
-              echo "Restarting systemd service mydrreferral-api.service"
-              sudo systemctl restart mydrreferral-api.service || true
-              sleep 2
-              if sudo systemctl is-active --quiet mydrreferral-api.service; then
-                echo "✅ API service is running"
-                exit 0
-              fi
-              echo "Service not active, starting directly..."
-            fi
+            # Always stop service to avoid stale processes
+            sudo systemctl stop mydrreferral-api.service || true
+            sleep 1
             
             cd "$API_DIR"
             export ASPNETCORE_ENVIRONMENT=Production
             export ASPNETCORE_URLS=http://+:5000
             export ConnectionStrings__DefaultConnection="Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
             
+            # Start API in background
             nohup dotnet MyDrReferral.Api.dll > /var/log/mydrreferral-api.log 2>&1 &
             API_PID=$!
             echo "API started with PID: $API_PID"
             sleep 3
             if ps -p $API_PID > /dev/null; then
               echo "✅ API is running"
+              echo "Runtime info:"
+              curl -s http://localhost:5000/api/healthcheck/info || true
             else
               echo "❌ API process died. Checking logs:"
-              tail -50 /var/log/mydrreferral-api.log || true
+              tail -100 /var/log/mydrreferral-api.log || true
               exit 1
             fi
 

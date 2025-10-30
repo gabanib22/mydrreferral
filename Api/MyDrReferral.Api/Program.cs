@@ -273,6 +273,16 @@ app.MapControllers();
 app.MapGet("/api/healthcheck/test2", () => Results.Ok("Test2 OK"))
    .AllowAnonymous();
 
+app.MapGet("/api/healthcheck/info", () =>
+{
+    var assembly = typeof(Program).Assembly;
+    var version = assembly.GetName().Version?.ToString() ?? "unknown";
+    var location = assembly.Location;
+    var baseDir = AppContext.BaseDirectory;
+    var builtUtc = System.IO.File.Exists(location) ? System.IO.File.GetLastWriteTimeUtc(location) : DateTime.MinValue;
+    return Results.Ok(new { version, location, baseDir, builtUtc });
+}).AllowAnonymous();
+
 app.MapPost("/api/healthcheck/test", async (MyDrReferralContext db) =>
 {
     try
