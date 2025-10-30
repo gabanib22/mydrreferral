@@ -183,6 +183,8 @@ jobs:
                 sudo kill -9 "$PORT_PID" || true
               fi
             fi
+            # Kill any lingering app processes by name
+            sudo pkill -f "dotnet.*MyDrReferral.Api.dll" || true
             sleep 1
             
             if [ "$EXTRACTED" = "1" ]; then
@@ -191,9 +193,20 @@ jobs:
               rm -rf /var/www/mydrreferral/Api/current || true
               mv "$NEW_DIR" /var/www/mydrreferral/Api/current
               cd /var/www/mydrreferral/Api/current
+              # Recompute API_DIR inside current
+              if [ -f "/var/www/mydrreferral/Api/current/MyDrReferral.Api.dll" ]; then
+                API_DIR="/var/www/mydrreferral/Api/current"
+              elif [ -f "/var/www/mydrreferral/Api/current/Api/MyDrReferral.Api.dll" ]; then
+                API_DIR="/var/www/mydrreferral/Api/current/Api"
+              else
+                echo "❌ Cannot find MyDrReferral.Api.dll after move"
+                find /var/www/mydrreferral/Api/current -name "MyDrReferral.Api.dll" -type f | head -10
+                exit 1
+              fi
             else
               cd "$API_DIR"
             fi
+            echo "Final API_DIR=$API_DIR"
             
             export ASPNETCORE_ENVIRONMENT=Production
             export ASPNETCORE_URLS=http://+:5000
