@@ -222,7 +222,7 @@ jobs:
               export PATH=$PATH:$HOME/.dotnet
             fi
 
-            # Write/refresh systemd unit (rokda-hisab style: bind only to :5000)
+            # Write/refresh systemd unit (bind directly to :80, no nginx)
             echo "Writing systemd unit $UNIT_FILE"
             sudo tee "$UNIT_FILE" > /dev/null <<EOF
             [Unit]
@@ -232,7 +232,7 @@ jobs:
             [Service]
             WorkingDirectory=$CURR_DIR
             Environment=ASPNETCORE_ENVIRONMENT=Production
-            Environment=ASPNETCORE_URLS=http://+:5000
+            Environment=ASPNETCORE_URLS=http://+:80
             Environment=ConnectionStrings__DefaultConnection=Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;
             Environment=DOTNET_ROOT=/home/ec2-user/.dotnet
             ExecStart=/home/ec2-user/.dotnet/dotnet $CURR_DIR/MyDrReferral.Api.dll
@@ -258,6 +258,17 @@ jobs:
             sudo systemctl stop nginx 2>/dev/null || true
             sudo systemctl disable nginx 2>/dev/null || true
 
+            # Allow dotnet to bind to privileged port :80
+            if command -v setcap >/dev/null 2>&1; then
+              sudo setcap 'cap_net_bind_service=+ep' /home/ec2-user/.dotnet/dotnet || true
+            else
+              echo "setcap not found; attempting to install libcap"
+              sudo yum install -y libcap >/dev/null 2>&1 || true
+              if command -v setcap >/dev/null 2>&1; then
+                sudo setcap 'cap_net_bind_service=+ep' /home/ec2-user/.dotnet/dotnet || true
+              fi
+            fi
+
             # Restart API via systemd
             echo "Reloading systemd and restarting service..."
             sudo systemctl daemon-reload
@@ -267,55 +278,12 @@ jobs:
             # Wait and verify
             sleep 5
             sudo systemctl status mydrreferral-api.service --no-pager || true
-            echo "Listening ports (expect :80 and :5000 after nginx):"
-            sudo ss -tlnp | grep -E ':80|:5000' || true
+            echo "Listening ports (expect :80):"
+            sudo ss -tlnp | grep -E ':80' || true
             echo "Recent service logs:"
             sudo journalctl -u mydrreferral-api -n 120 --no-pager || true
-            # Install and configure Nginx to proxy 80 -> 5000 (amazon-linux-extras nginx1)
-            if ! command -v nginx >/dev/null 2>&1 && ! [ -x /usr/sbin/nginx ]; then
-              echo "Installing Nginx (nginx1 via amazon-linux-extras)..."
-              sudo amazon-linux-extras enable nginx1 >/dev/null 2>&1 || true
-              sudo yum clean metadata >/dev/null 2>&1 || true
-              sudo yum clean all >/dev/null 2>&1 || true
-              sudo yum makecache >/dev/null 2>&1 || true
-              sudo yum install -y nginx >/dev/null 2>&1 || true
-            fi
-            # Detect nginx binary
-            NGINX_BIN=$(command -v nginx || echo /usr/sbin/nginx)
-            if ! [ -x "$NGINX_BIN" ]; then
-              echo "❌ nginx binary not found after installation attempts"
-              which nginx || true
-              ls -la /usr/sbin/nginx /usr/bin/nginx 2>/dev/null || true
-              exit 1
-            fi
-            sudo systemctl enable nginx || true
-            sudo mkdir -p /etc/nginx/conf.d
-            sudo tee /etc/nginx/conf.d/mydrreferral.conf > /dev/null <<'NGINX'
-            server {
-                listen 80;
-                server_name _;
-                location / {
-                    proxy_pass http://localhost:5000;
-                    proxy_http_version 1.1;
-                    proxy_set_header Host $host;
-                    proxy_set_header X-Real-IP $remote_addr;
-                    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                    proxy_set_header X-Forwarded-Proto $scheme;
-                }
-            }
-            NGINX
-            echo "Validating nginx config with: $NGINX_BIN -t"
-            if ! sudo "$NGINX_BIN" -t; then
-              echo "❌ nginx config test failed"
-              sudo journalctl -u nginx -n 200 --no-pager || true
-              exit 1
-            fi
-            sudo systemctl restart nginx || true
-
-            echo "Probing localhost endpoints (80 and 5000)..."
+            echo "Probing localhost endpoint (80)..."
             curl -s http://localhost/api/healthcheck/success || true
-            echo
-            curl -s http://localhost:5000/api/healthcheck/success || true
             echo
 
   # Health Check
