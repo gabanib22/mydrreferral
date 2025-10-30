@@ -271,10 +271,13 @@ jobs:
             sudo ss -tlnp | grep -E ':80|:5000' || true
             echo "Recent service logs:"
             sudo journalctl -u mydrreferral-api -n 120 --no-pager || true
-            # Install and configure Nginx to proxy 80 -> 5000
-            if ! command -v nginx &> /dev/null; then
-              echo "Installing Nginx..."
-              (sudo yum install -y nginx || sudo dnf install -y nginx || sudo amazon-linux-extras install -y nginx1) >/dev/null 2>&1 || true
+            # Install and configure Nginx to proxy 80 -> 5000 (amazon-linux-extras nginx1)
+            if ! [ -x /usr/sbin/nginx ]; then
+              echo "Installing Nginx (nginx1 via amazon-linux-extras)..."
+              sudo amazon-linux-extras enable nginx1 >/dev/null 2>&1 || true
+              sudo yum clean all >/dev/null 2>&1 || true
+              sudo yum makecache >/dev/null 2>&1 || true
+              sudo yum install -y nginx >/dev/null 2>&1 || true
             fi
             sudo systemctl enable nginx || true
             sudo mkdir -p /etc/nginx/conf.d
@@ -285,17 +288,14 @@ jobs:
                 location / {
                     proxy_pass http://localhost:5000;
                     proxy_http_version 1.1;
-                    proxy_set_header Upgrade $http_upgrade;
-                    proxy_set_header Connection keep-alive;
                     proxy_set_header Host $host;
                     proxy_set_header X-Real-IP $remote_addr;
                     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
                     proxy_set_header X-Forwarded-Proto $scheme;
-                    proxy_cache_bypass $http_upgrade;
                 }
             }
             NGINX
-            if ! sudo nginx -t; then
+            if ! sudo /usr/sbin/nginx -t; then
               echo "❌ nginx config test failed"
               sudo journalctl -u nginx -n 200 --no-pager || true
               exit 1
