@@ -166,6 +166,23 @@ jobs:
             # Stop service
             sudo systemctl stop mydrreferral-api.service || true
             sleep 1
+
+            # Ensure port 5000 is free (try fuser, then ss, then netstat)
+            echo "Ensuring port 5000 is free..."
+            if command -v fuser >/dev/null 2>&1; then
+              sudo fuser -k 5000/tcp || true
+            else
+              if command -v ss >/dev/null 2>&1; then
+                PORT_PID=$(sudo ss -tulpn | awk '/:5000[ \t]/ {print $NF}' | sed 's/.*pid=\([0-9]*\).*/\1/' | head -1)
+              else
+                PORT_PID=$(sudo netstat -tulpn 2>/dev/null | awk '/:5000[ \t]/ {print $7}' | cut -d'/' -f1 | head -1)
+              fi
+              if [ -n "$PORT_PID" ]; then
+                echo "Killing PID $PORT_PID on port 5000"
+                sudo kill -9 "$PORT_PID" || true
+              fi
+            fi
+            sleep 1
             
             if [ "$EXTRACTED" = "1" ]; then
               # Atomically replace current files
