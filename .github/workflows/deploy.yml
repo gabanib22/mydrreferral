@@ -109,7 +109,6 @@ jobs:
             echo "🔧 Starting API deployment..."
             cd /var/www/mydrreferral/Api/
             
-            # Extract if tar.gz exists (SCP might have extracted already)
             if [ -f mydrreferral-api.tar.gz ]; then
               echo "Extracting tar.gz..."
               tar -xzf mydrreferral-api.tar.gz
@@ -118,19 +117,17 @@ jobs:
             
             # Find the DLL location
             if [ -f MyDrReferral.Api.dll ]; then
-              echo "✅ Found MyDrReferral.Api.dll in current directory"
               API_DIR=$(pwd)
             elif [ -f Api/MyDrReferral.Api.dll ]; then
-              echo "✅ Found MyDrReferral.Api.dll in Api/ subdirectory"
               cd Api/
               API_DIR=$(pwd)
             else
               echo "❌ Cannot find MyDrReferral.Api.dll"
-              find . -name "MyDrReferral.Api.dll" -type f
+              find . -name "MyDrReferral.Api.dll" -type f | head -5
               exit 1
             fi
             
-            # Install .NET if not found
+            # Ensure .NET is available
             if ! command -v dotnet &> /dev/null; then
               echo "Installing .NET 8..."
               curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 8.0
@@ -138,55 +135,35 @@ jobs:
               export PATH=$PATH:$HOME/.dotnet
             fi
             
-            # Stop any running API processes first (before configuring Nginx)
-            echo "Stopping existing API processes..."
-            sudo systemctl stop mydrreferral-api.service || true
-            sudo pkill -f "dotnet.*MyDrReferral.Api.dll" || true
-            
-            # Kill any remaining processes on port 5000
-            PORT_PID=$(sudo netstat -tlnp 2>/dev/null | grep ':5000 ' | awk '{print $7}' | cut -d'/' -f1 | head -1 || echo "")
-            if [ -n "$PORT_PID" ]; then
-              echo "Killing process $PORT_PID on port 5000"
-              sudo kill -9 $PORT_PID 2>/dev/null || true
-            fi
-            sleep 1
-            
-            # Only install/configure Nginx if needed (skip if already running)
-            if systemctl is-active --quiet nginx 2>/dev/null; then
-              echo "Nginx is already running"
-            else
-              if ! command -v nginx &> /dev/null; then
-                echo "Installing Nginx..."
-                sudo amazon-linux-extras install -y nginx1 > /dev/null 2>&1
-                sudo systemctl enable nginx
-              fi
-              
-              # Configure Nginx (single-line printf to avoid YAML issues)
-              sudo bash -c "printf '%s\\n' 'server {' '    listen 80;' '    server_name _;' '    location / {' '        proxy_pass http://localhost:5000;' '        proxy_http_version 1.1;' '        proxy_set_header Upgrade \\\\$http_upgrade;' '        proxy_set_header Connection keep-alive;' '        proxy_set_header Host \\\\$host;' '        proxy_set_header X-Real-IP \\\\$remote_addr;' '        proxy_set_header X-Forwarded-For \\\\$proxy_add_x_forwarded_for;' '        proxy_set_header X-Forwarded-Proto \\\\$scheme;' '        proxy_cache_bypass \\\\$http_upgrade;' '    }' '}' > /etc/nginx/conf.d/mydrreferral.conf"
-            fi
-            
-            # Restart Nginx
+            # Restart Nginx (ignore failures)
             sudo systemctl restart nginx || true
             
-            # Start API
+            # Restart API service if it exists; otherwise start directly
+            if systemctl list-unit-files | grep -q '^mydrreferral-api.service'; then
+              echo "Restarting systemd service mydrreferral-api.service"
+              sudo systemctl restart mydrreferral-api.service || true
+              sleep 2
+              if sudo systemctl is-active --quiet mydrreferral-api.service; then
+                echo "✅ API service is running"
+                exit 0
+              fi
+              echo "Service not active, starting directly..."
+            fi
+            
             cd "$API_DIR"
-            echo "Starting API from: $(pwd)"
             export ASPNETCORE_ENVIRONMENT=Production
             export ASPNETCORE_URLS=http://+:5000
             export ConnectionStrings__DefaultConnection="Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
             
-            # Start API in background
             nohup dotnet MyDrReferral.Api.dll > /var/log/mydrreferral-api.log 2>&1 &
             API_PID=$!
             echo "API started with PID: $API_PID"
-            
-            # Wait a bit and check if it's still running
             sleep 3
             if ps -p $API_PID > /dev/null; then
               echo "✅ API is running"
             else
               echo "❌ API process died. Checking logs:"
-              tail -50 /var/log/mydrreferral-api.log
+              tail -50 /var/log/mydrreferral-api.log || true
               exit 1
             fi
 
