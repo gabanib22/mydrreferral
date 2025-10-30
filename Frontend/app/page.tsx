@@ -74,6 +74,30 @@ function Home() {
     }
   }, [isAuthenticated]);
 
+  // Refresh on custom event and on tab focus/visibility change
+  useEffect(() => {
+    const onRefresh = () => {
+      if (isAuthenticated) {
+        loadDashboardData();
+      }
+    };
+    const onFocus = () => {
+      if (isAuthenticated) {
+        loadDashboardData();
+      }
+    };
+    window.addEventListener('refresh-dashboard', onRefresh);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') onRefresh();
+    });
+    return () => {
+      window.removeEventListener('refresh-dashboard', onRefresh);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onRefresh as any);
+    };
+  }, [isAuthenticated]);
+
   const loadDashboardData = async () => {
     try {
       setLoading(true);

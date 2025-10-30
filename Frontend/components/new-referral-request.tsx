@@ -145,6 +145,8 @@ const NewReferral: React.FC<NewReferralProps> = ({ close }) => {
       if (isSuccess) {
         setSuccess("Referral request sent successfully!");
           setFormData(initialForm);
+        // Notify dashboard to refresh immediately
+        try { window.dispatchEvent(new Event('refresh-dashboard')); } catch {}
         setTimeout(() => {
           close();
         }, 2000);
