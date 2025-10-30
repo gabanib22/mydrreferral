@@ -250,12 +250,17 @@ jobs:
             echo "Current content:"
             ls -la "$CURR_DIR" | head -50
 
-            # Nginx ensure and restart
+            # Nginx ensure and restart (robust install + config test)
             if ! command -v nginx &> /dev/null; then
               echo "Installing Nginx..."
-              sudo amazon-linux-extras install -y nginx1 >/dev/null 2>&1 || true
+              # Try amazon-linux-extras first, then fall back to yum/dnf
+              sudo amazon-linux-extras install -y nginx1 >/dev/null 2>&1 || \
+              sudo yum install -y nginx >/dev/null 2>&1 || \
+              sudo dnf install -y nginx >/dev/null 2>&1 || true
               sudo systemctl enable nginx || true
             fi
+            # Ensure conf.d exists even if nginx package didn't create it yet
+            sudo mkdir -p /etc/nginx/conf.d
             sudo tee /etc/nginx/conf.d/mydrreferral.conf > /dev/null <<NGINX
             server {
                 listen 80;
@@ -273,6 +278,12 @@ jobs:
                 }
             }
             NGINX
+            # Validate nginx config before restart for clearer errors
+            if ! sudo nginx -t; then
+              echo "nginx config test failed; showing logs";
+              sudo journalctl -u nginx -n 200 --no-pager || true
+              exit 1
+            fi
             sudo systemctl restart nginx || true
 
             # Restart API via systemd
