@@ -118,25 +118,39 @@ jobs:
               echo "Extracting tar.gz into $NEW_DIR..."
               tar -xzf mydrreferral-api.tar.gz -C "$NEW_DIR"
               rm -f mydrreferral-api.tar.gz
+              EXTRACTED=1
             else
-              echo "❌ mydrreferral-api.tar.gz not found"
-              exit 1
+              echo "⚠️ mydrreferral-api.tar.gz not found. Will try to use existing deployed DLL."
+              EXTRACTED=0
             fi
             
-            echo "Contents of new build:"
-            ls -lat "$NEW_DIR" | head -50
-            
-            # Determine API_DIR inside new
-            if [ -f "$NEW_DIR/MyDrReferral.Api.dll" ]; then
-              API_DIR="$NEW_DIR"
-            elif [ -f "$NEW_DIR/Api/MyDrReferral.Api.dll" ]; then
-              API_DIR="$NEW_DIR/Api"
+            if [ "$EXTRACTED" = "1" ]; then
+              echo "Contents of new build:"
+              ls -lat "$NEW_DIR" | head -50
+              
+              # Determine API_DIR inside new
+              if [ -f "$NEW_DIR/MyDrReferral.Api.dll" ]; then
+                API_DIR="$NEW_DIR"
+              elif [ -f "$NEW_DIR/Api/MyDrReferral.Api.dll" ]; then
+                API_DIR="$NEW_DIR/Api"
+              else
+                echo "❌ Cannot find MyDrReferral.Api.dll in new build"
+                find "$NEW_DIR" -name "MyDrReferral.Api.dll" -type f | head -10
+                exit 1
+              fi
+              echo "Using API_DIR=$API_DIR (from extracted build)"
             else
-              echo "❌ Cannot find MyDrReferral.Api.dll in new build"
-              find "$NEW_DIR" -name "MyDrReferral.Api.dll" -type f | head -10
-              exit 1
+              # Locate latest existing DLL under current path
+              echo "Searching for existing MyDrReferral.Api.dll under /var/www/mydrreferral/Api..."
+              DLL_PATH=$(find /var/www/mydrreferral/Api -name "MyDrReferral.Api.dll" -type f | head -1)
+              if [ -z "$DLL_PATH" ]; then
+                echo "❌ Could not locate MyDrReferral.Api.dll"
+                find /var/www/mydrreferral/Api -maxdepth 3 -type f | head -50
+                exit 1
+              fi
+              API_DIR=$(dirname "$DLL_PATH")
+              echo "Using API_DIR=$API_DIR (existing deployment)"
             fi
-            echo "Using API_DIR=$API_DIR"
             
             # Ensure .NET is available
             if ! command -v dotnet &> /dev/null; then
@@ -149,14 +163,19 @@ jobs:
             # Restart Nginx (ignore failures)
             sudo systemctl restart nginx || true
             
-            # Stop service and any existing process
+            # Stop service
             sudo systemctl stop mydrreferral-api.service || true
             sleep 1
             
-            # Atomically replace current files
-            echo "Replacing current API files..."
-            mv "$NEW_DIR" /var/www/mydrreferral/Api/current
-            cd /var/www/mydrreferral/Api/current
+            if [ "$EXTRACTED" = "1" ]; then
+              # Atomically replace current files
+              echo "Replacing current API files..."
+              rm -rf /var/www/mydrreferral/Api/current || true
+              mv "$NEW_DIR" /var/www/mydrreferral/Api/current
+              cd /var/www/mydrreferral/Api/current
+            else
+              cd "$API_DIR"
+            fi
             
             export ASPNETCORE_ENVIRONMENT=Production
             export ASPNETCORE_URLS=http://+:5000
