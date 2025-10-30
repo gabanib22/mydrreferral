@@ -109,23 +109,34 @@ jobs:
             echo "🔧 Starting API deployment..."
             cd /var/www/mydrreferral/Api/
             
-            if [ -f mydrreferral-api.tar.gz ]; then
-              echo "Extracting tar.gz..."
-              tar -xzf mydrreferral-api.tar.gz
-              rm mydrreferral-api.tar.gz
-            fi
+            # Prepare fresh directory for atomic replace
+            NEW_DIR="/var/www/mydrreferral/Api/new"
+            rm -rf "$NEW_DIR" || true
+            mkdir -p "$NEW_DIR"
             
-            # Find the DLL location
-            if [ -f MyDrReferral.Api.dll ]; then
-              API_DIR=$(pwd)
-            elif [ -f Api/MyDrReferral.Api.dll ]; then
-              cd Api/
-              API_DIR=$(pwd)
+            if [ -f mydrreferral-api.tar.gz ]; then
+              echo "Extracting tar.gz into $NEW_DIR..."
+              tar -xzf mydrreferral-api.tar.gz -C "$NEW_DIR"
+              rm -f mydrreferral-api.tar.gz
             else
-              echo "❌ Cannot find MyDrReferral.Api.dll"
-              find . -name "MyDrReferral.Api.dll" -type f | head -5
+              echo "❌ mydrreferral-api.tar.gz not found"
               exit 1
             fi
+            
+            echo "Contents of new build:"
+            ls -lat "$NEW_DIR" | head -50
+            
+            # Determine API_DIR inside new
+            if [ -f "$NEW_DIR/MyDrReferral.Api.dll" ]; then
+              API_DIR="$NEW_DIR"
+            elif [ -f "$NEW_DIR/Api/MyDrReferral.Api.dll" ]; then
+              API_DIR="$NEW_DIR/Api"
+            else
+              echo "❌ Cannot find MyDrReferral.Api.dll in new build"
+              find "$NEW_DIR" -name "MyDrReferral.Api.dll" -type f | head -10
+              exit 1
+            fi
+            echo "Using API_DIR=$API_DIR"
             
             # Ensure .NET is available
             if ! command -v dotnet &> /dev/null; then
@@ -138,27 +149,41 @@ jobs:
             # Restart Nginx (ignore failures)
             sudo systemctl restart nginx || true
             
-            # Always stop service to avoid stale processes
+            # Stop service and any existing process
             sudo systemctl stop mydrreferral-api.service || true
             sleep 1
             
-            cd "$API_DIR"
+            # Atomically replace current files
+            echo "Replacing current API files..."
+            mv "$NEW_DIR" /var/www/mydrreferral/Api/current
+            cd /var/www/mydrreferral/Api/current
+            
             export ASPNETCORE_ENVIRONMENT=Production
             export ASPNETCORE_URLS=http://+:5000
             export ConnectionStrings__DefaultConnection="Host=10.0.1.150;Port=5432;Database=postgres;Username=postgres;Password=MyDrReferral123;"
             
-            # Start API in background
-            nohup dotnet MyDrReferral.Api.dll > /tmp/mydrreferral-api.log 2>&1 &
+            LOG_FILE=/tmp/mydrreferral-api.log
+            echo "Starting API from $(pwd) (DLL path: $API_DIR/MyDrReferral.Api.dll), logging to $LOG_FILE"
+            nohup dotnet "$API_DIR/MyDrReferral.Api.dll" > "$LOG_FILE" 2>&1 &
             API_PID=$!
             echo "API started with PID: $API_PID"
-            sleep 3
+            sleep 4
+            
+            echo "First 50 log lines (if any):"
+            head -50 "$LOG_FILE" || true
+            
             if ps -p $API_PID > /dev/null; then
-              echo "✅ API is running"
-              echo "Runtime info:"
+              echo "✅ API process is running"
+              echo "Probing localhost endpoints..."
+              echo "- /api/healthcheck/success:"
+              curl -s http://localhost:5000/api/healthcheck/success || true
+              echo "\n- /api/healthcheck/info:"
               curl -s http://localhost:5000/api/healthcheck/info || true
+              echo "\n- /api/healthcheck/test2:"
+              curl -s http://localhost:5000/api/healthcheck/test2 || true
             else
-              echo "❌ API process died. Checking logs:"
-              tail -100 /tmp/mydrreferral-api.log || true
+              echo "❌ API process died. Last 100 log lines:"
+              tail -100 "$LOG_FILE" || true
               exit 1
             fi
 
