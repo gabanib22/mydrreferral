@@ -280,17 +280,19 @@ jobs:
   health-check:
     runs-on: ubuntu-latest
     needs: [deploy-api]
+    timeout-minutes: 12
     steps:
       - name: Wait and test API
         run: |
-          sleep 15
+          set -euo pipefail
+          sleep 20
           echo "Testing API health..."
           for i in {1..5}; do
-            if curl -sf http://${{ secrets.EC2_HOST }}/api/healthcheck/success; then
+            if curl -sf --connect-timeout 2 --max-time 5 http://${{ secrets.EC2_HOST }}/api/healthcheck/success; then
               echo "✅ API is healthy on :80"
               OK=1; break
             fi
-            if curl -sf http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/success; then
+            if curl -sf --connect-timeout 2 --max-time 5 http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/success; then
               echo "✅ API is healthy on :5000"
               OK=1; break
             fi
@@ -307,14 +309,15 @@ jobs:
           echo "========================================="
           
           echo "Trying GET first..."
-          GET_RESPONSE=$(curl -s http://${{ secrets.EC2_HOST }}/api/healthcheck/test || curl -s http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/test || echo "ERROR")
+          GET_RESPONSE=$(curl -s --connect-timeout 2 --max-time 5 http://${{ secrets.EC2_HOST }}/api/healthcheck/test || \
+                         curl -s --connect-timeout 2 --max-time 5 http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/test || echo "ERROR")
           echo "GET Response: $GET_RESPONSE"
           
           for i in {1..3}; do
             echo ""
             echo "Attempt $i: Calling test DateTime endpoint (POST)..."
-            RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://${{ secrets.EC2_HOST }}/api/healthcheck/test 2>&1 || \
-                       curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/test 2>&1 || echo "HTTP_STATUS:000")
+            RESPONSE=$(curl -s --connect-timeout 2 --max-time 8 -w "\nHTTP_STATUS:%{http_code}" -X POST http://${{ secrets.EC2_HOST }}/api/healthcheck/test 2>&1 || \
+                       curl -s --connect-timeout 2 --max-time 8 -w "\nHTTP_STATUS:%{http_code}" -X POST http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/test 2>&1 || echo "HTTP_STATUS:000")
             HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d: -f2 || echo "000")
             BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d' | head -100)
             
@@ -339,9 +342,37 @@ jobs:
           done
           
           echo "❌ Could not reach endpoint (404). Checking if route exists..."
-          curl -v http://${{ secrets.EC2_HOST }}/api/healthcheck/test 2>&1 | head -30
-          
-          echo "❌ DateTime test failed after 3 attempts"
+          curl -v --connect-timeout 2 --max-time 8 http://${{ secrets.EC2_HOST }}/api/healthcheck/test 2>&1 | head -30 || true
+          curl -v --connect-timeout 2 --max-time 8 http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/test 2>&1 | head -30 || true
+
+      - name: Gather API diagnostics on EC2
+        if: always()
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          timeout: 4m
+          command_timeout: 4m
+          script: |
+            echo "--- Listening ports ---"; sudo ss -tlnp | grep -E ':80|:5000' || true
+            echo "--- Service status ---"; sudo systemctl status mydrreferral-api --no-pager || true
+            echo "--- Recent logs ---"; sudo journalctl -u mydrreferral-api -n 200 --no-pager || true
+            echo "--- Dotnet version ---"; dotnet --info || true
+            echo "--- Curl localhost probes ---"
+            curl -s --connect-timeout 2 --max-time 5 http://localhost/api/healthcheck/success || echo FAIL80
+            curl -s --connect-timeout 2 --max-time 5 http://localhost:5000/api/healthcheck/success || echo FAIL5000
+
+      - name: Fail health-check if API unreachable
+        if: always()
+        run: |
+          # Final quick probe: succeed if either endpoint responds
+          if curl -sf --connect-timeout 2 --max-time 5 http://${{ secrets.EC2_HOST }}/api/healthcheck/success || \
+             curl -sf --connect-timeout 2 --max-time 5 http://${{ secrets.EC2_HOST }}:5000/api/healthcheck/success; then
+            echo "✅ API became reachable"
+            exit 0
+          fi
+          echo "❌ DateTime test failed after retries; API unreachable"
           exit 1
 
   # Notification
