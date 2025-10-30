@@ -106,7 +106,7 @@ jobs:
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "Api/mydrreferral-api.tar.gz"
-          target: "/var/www/mydrreferral/Api/mydrreferral-api.tar.gz"
+          target: "/var/www/mydrreferral/Api/"
           overwrite: true
 
       - name: Verify archive on EC2
@@ -118,6 +118,15 @@ jobs:
           script: |
             echo "Verifying archive presence and checksum..."
             ls -la /var/www/mydrreferral/Api
+            if [ -d /var/www/mydrreferral/Api/mydrreferral-api.tar.gz ]; then
+              echo "Normalizing: found directory named mydrreferral-api.tar.gz; moving inner tar.gz up one level..."
+              INNER=$(find /var/www/mydrreferral/Api/mydrreferral-api.tar.gz -maxdepth 1 -name "*.tar.gz" -type f | head -1)
+              if [ -n "$INNER" ]; then
+                mv "$INNER" /var/www/mydrreferral/Api/mydrreferral-api.tar.gz
+                rm -rf /var/www/mydrreferral/Api/mydrreferral-api.tar.gz/* || true
+                rmdir /var/www/mydrreferral/Api/mydrreferral-api.tar.gz || true
+              fi
+            fi
             sha256sum /var/www/mydrreferral/Api/mydrreferral-api.tar.gz || true
 
       - name: Extract and start API
@@ -139,6 +148,16 @@ jobs:
 
             sudo mkdir -p "$BASE_DIR" "$STAGE_DIR"
             cd "$BASE_DIR"
+
+            # Normalize in case copy created a directory named like the file
+            if [ -d mydrreferral-api.tar.gz ]; then
+              INNER=$(find mydrreferral-api.tar.gz -maxdepth 1 -name "*.tar.gz" -type f | head -1)
+              if [ -n "$INNER" ]; then
+                mv "$INNER" mydrreferral-api.tar.gz
+                rm -rf mydrreferral-api.tar.gz/* || true
+                rmdir mydrreferral-api.tar.gz || true
+              fi
+            fi
 
             # Ensure tar is present (SCP step sets overwrite: true)
             if [ ! -f mydrreferral-api.tar.gz ]; then
