@@ -5,7 +5,7 @@ using MyDrReferral.Data.Models;
 
 namespace MyDrReferral.Api.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/healthcheck")]
     [ApiController]
     [AllowAnonymous] // Allow anonymous access for health checks
     public class HealthCheckController : Controller
