@@ -253,12 +253,23 @@ jobs:
             # Nginx ensure and restart (robust install + config test)
             if ! command -v nginx &> /dev/null; then
               echo "Installing Nginx..."
-              # Try amazon-linux-extras first, then fall back to yum/dnf
-              sudo amazon-linux-extras install -y nginx1 >/dev/null 2>&1 || \
-              sudo yum install -y nginx >/dev/null 2>&1 || \
-              sudo dnf install -y nginx >/dev/null 2>&1 || true
-              sudo systemctl enable nginx || true
+              # Try package managers available on the host, verify after each
+              if command -v dnf &> /dev/null; then
+                sudo dnf install -y nginx >/dev/null 2>&1 || true
+              fi
+              if ! command -v nginx &> /dev/null && command -v yum &> /dev/null; then
+                sudo yum install -y nginx >/dev/null 2>&1 || true
+              fi
+              if ! command -v nginx &> /dev/null && command -v amazon-linux-extras &> /dev/null; then
+                sudo amazon-linux-extras install -y nginx1 >/dev/null 2>&1 || true
+              fi
             fi
+            # Fail fast if nginx still missing
+            if ! command -v nginx &> /dev/null; then
+              echo "❌ Nginx binary not found after installation attempts. Please ensure repositories are enabled.";
+              exit 1
+            fi
+            sudo systemctl enable nginx || true
             # Ensure conf.d exists even if nginx package didn't create it yet
             sudo mkdir -p /etc/nginx/conf.d
             sudo tee /etc/nginx/conf.d/mydrreferral.conf > /dev/null <<'NGINX'
