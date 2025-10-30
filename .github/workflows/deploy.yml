@@ -287,6 +287,7 @@ jobs:
       - name: Wait and test API
         run: |
           set -euo pipefail
+          OK=""
           sleep 20
           echo "Testing API health..."
           for i in {1..5}; do
