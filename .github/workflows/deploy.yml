@@ -96,6 +96,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "Api/mydrreferral-api.tar.gz"
           target: "/var/www/mydrreferral/Api/"
+          overwrite: true
 
       - name: Extract and start API
         uses: appleboy/ssh-action@v1.0.0
