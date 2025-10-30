@@ -261,7 +261,7 @@ jobs:
             fi
             # Ensure conf.d exists even if nginx package didn't create it yet
             sudo mkdir -p /etc/nginx/conf.d
-            sudo tee /etc/nginx/conf.d/mydrreferral.conf > /dev/null <<NGINX
+sudo tee /etc/nginx/conf.d/mydrreferral.conf > /dev/null <<'NGINX'
             server {
                 listen 80;
                 server_name _;
