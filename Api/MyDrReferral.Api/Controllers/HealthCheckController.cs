@@ -18,9 +18,6 @@ namespace MyDrReferral.Api.Controllers
 
         // Explicit absolute routes to avoid any ambiguity
         [HttpGet("test")]
-        [HttpGet("/api/healthcheck/test")]
-        [HttpPost("test")]
-        [HttpPost("/api/healthcheck/test")]
         public async Task<IActionResult> TestDateTime()
         {
             try
@@ -65,7 +62,6 @@ namespace MyDrReferral.Api.Controllers
 
         // Simple ping endpoint to verify routing
         [HttpGet("test2")]
-        [HttpGet("/api/healthcheck/test2")]
         public IActionResult TestRoute()
         {
             return Ok("Test2 OK");
