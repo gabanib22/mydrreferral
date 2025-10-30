@@ -22,6 +22,9 @@ const NewReferral: React.FC<NewReferralProps> = ({ close }) => {
   const initialForm = {
     connection_id: 0,
     patient_name: '',
+    patient_phone: '',
+    patient_email: '',
+    patient_address: '',
     notes: '',
     rfl_amount: 0,
   };
@@ -119,11 +122,21 @@ const NewReferral: React.FC<NewReferralProps> = ({ close }) => {
         setError('');
       setSuccess('');
 
+      // Build enriched notes with optional patient details (no DB changes needed)
+      const optionalLines = [
+        formData.patient_phone ? `Patient Phone: ${formData.patient_phone}` : '',
+        formData.patient_email ? `Patient Email: ${formData.patient_email}` : '',
+        formData.patient_address ? `Patient Address: ${formData.patient_address}` : '',
+      ].filter(Boolean);
+      const mergedNotes = [formData.notes?.trim() || '', ...optionalLines]
+        .filter(Boolean)
+        .join('\n');
+
       // Convert to API format (snake_case to match JsonPropertyName attributes)
       const apiPayload = {
         connection_id: formData.connection_id,
         patient_name: formData.patient_name,
-        notes: formData.notes,
+        notes: mergedNotes,
         rfl_amount: Math.round(formData.rfl_amount), // Convert to integer
         status: 1 // Set default status (1 = Sent)
       };
@@ -242,6 +255,38 @@ const NewReferral: React.FC<NewReferralProps> = ({ close }) => {
             onChange={handleInputChange}
             fullWidth
             required
+            disabled={loading}
+          />
+
+          {/* Optional Patient Contact */}
+          <TextField
+            name="patient_phone"
+            label="Patient Phone (Optional)"
+            placeholder="Enter patient phone..."
+            value={formData.patient_phone}
+            onChange={handleInputChange}
+            fullWidth
+            disabled={loading}
+          />
+          <TextField
+            name="patient_email"
+            label="Patient Email (Optional)"
+            placeholder="Enter patient email..."
+            type="email"
+            value={formData.patient_email}
+            onChange={handleInputChange}
+            fullWidth
+            disabled={loading}
+          />
+          <TextField
+            name="patient_address"
+            label="Patient Address (Optional)"
+            placeholder="Enter patient address..."
+            value={formData.patient_address}
+            onChange={handleInputChange}
+            fullWidth
+            multiline
+            minRows={2}
             disabled={loading}
           />
 
