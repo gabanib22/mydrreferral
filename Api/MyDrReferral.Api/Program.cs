@@ -269,4 +269,28 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// Minimal endpoints for healthcheck test to avoid any controller routing issues
+app.MapGet("/api/healthcheck/test2", () => Results.Ok("Test2 OK"))
+   .AllowAnonymous();
+
+app.MapPost("/api/healthcheck/test", async (MyDrReferralContext db) =>
+{
+    try
+    {
+        var entity = new TestDateTime
+        {
+            TestName = $"Test_{DateTime.UtcNow:yyyyMMddHHmmss}",
+            CreatedDate = DateTime.Now,
+            NullableDate = DateTime.Now
+        };
+        db.TestDateTime.Add(entity);
+        await db.SaveChangesAsync();
+        return Results.Ok(new { success = true, id = entity.Id });
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(statusCode: 500, title: ex.Message, detail: ex.InnerException?.Message);
+    }
+}).AllowAnonymous();
+
 app.Run();
