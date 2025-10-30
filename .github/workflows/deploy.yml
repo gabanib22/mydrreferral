@@ -261,7 +261,7 @@ jobs:
             fi
             # Ensure conf.d exists even if nginx package didn't create it yet
             sudo mkdir -p /etc/nginx/conf.d
-sudo tee /etc/nginx/conf.d/mydrreferral.conf > /dev/null <<'NGINX'
+            sudo tee /etc/nginx/conf.d/mydrreferral.conf > /dev/null <<'NGINX'
             server {
                 listen 80;
                 server_name _;
@@ -380,5 +380,4 @@ sudo tee /etc/nginx/conf.d/mydrreferral.conf > /dev/null <<'NGINX'
             echo "API: ${{ needs.deploy-api.result }}"
             echo "Health: ${{ needs.health-check.result }}"
             exit 1
-          fi
           fi
