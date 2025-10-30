@@ -88,6 +88,17 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Prepare remote target directory
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            sudo mkdir -p /var/www/mydrreferral/Api
+            sudo chown -R ec2-user:ec2-user /var/www/mydrreferral/Api
+            ls -la /var/www/mydrreferral/Api || true
+
       - name: Copy API to EC2
         uses: appleboy/scp-action@v0.1.4
         with:
@@ -95,8 +106,19 @@ jobs:
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "Api/mydrreferral-api.tar.gz"
-          target: "/var/www/mydrreferral/Api/"
+          target: "/var/www/mydrreferral/Api/mydrreferral-api.tar.gz"
           overwrite: true
+
+      - name: Verify archive on EC2
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "Verifying archive presence and checksum..."
+            ls -la /var/www/mydrreferral/Api
+            sha256sum /var/www/mydrreferral/Api/mydrreferral-api.tar.gz || true
 
       - name: Extract and start API
         uses: appleboy/ssh-action@v1.0.0
@@ -125,7 +147,7 @@ jobs:
               exit 1
             fi
 
-            # Prepare stage and extract
+            # Clean stage and extract
             rm -rf "$STAGE_DIR"/* || true
             echo "Extracting to stage..."
             tar -xzf mydrreferral-api.tar.gz -C "$STAGE_DIR"
