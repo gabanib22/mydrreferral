@@ -272,12 +272,21 @@ jobs:
             echo "Recent service logs:"
             sudo journalctl -u mydrreferral-api -n 120 --no-pager || true
             # Install and configure Nginx to proxy 80 -> 5000 (amazon-linux-extras nginx1)
-            if ! [ -x /usr/sbin/nginx ]; then
+            if ! command -v nginx >/dev/null 2>&1 && ! [ -x /usr/sbin/nginx ]; then
               echo "Installing Nginx (nginx1 via amazon-linux-extras)..."
               sudo amazon-linux-extras enable nginx1 >/dev/null 2>&1 || true
+              sudo yum clean metadata >/dev/null 2>&1 || true
               sudo yum clean all >/dev/null 2>&1 || true
               sudo yum makecache >/dev/null 2>&1 || true
               sudo yum install -y nginx >/dev/null 2>&1 || true
+            fi
+            # Detect nginx binary
+            NGINX_BIN=$(command -v nginx || echo /usr/sbin/nginx)
+            if ! [ -x "$NGINX_BIN" ]; then
+              echo "❌ nginx binary not found after installation attempts"
+              which nginx || true
+              ls -la /usr/sbin/nginx /usr/bin/nginx 2>/dev/null || true
+              exit 1
             fi
             sudo systemctl enable nginx || true
             sudo mkdir -p /etc/nginx/conf.d
@@ -295,7 +304,8 @@ jobs:
                 }
             }
             NGINX
-            if ! sudo /usr/sbin/nginx -t; then
+            echo "Validating nginx config with: $NGINX_BIN -t"
+            if ! sudo "$NGINX_BIN" -t; then
               echo "❌ nginx config test failed"
               sudo journalctl -u nginx -n 200 --no-pager || true
               exit 1

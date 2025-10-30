@@ -43,7 +43,7 @@ namespace MyDrReferral.Api.Controllers
                 }
 
                 // Search for doctors (users with UserType = 0) with comprehensive search
-                var searchTerm = searchText.ToLower(); // Case-insensitive search
+                var searchTerm = (searchText ?? string.Empty).ToLower(); // Case-insensitive search
                 var currentUserId = User.FindFirst("nameid")?.Value ??
                                   User.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
                                   User.FindFirst("userId")?.Value;
@@ -52,12 +52,12 @@ namespace MyDrReferral.Api.Controllers
                                 u.Id != currentUserId && // Exclude current user
                                u.IsActive == true && 
                                u.IsDelete == false &&
-                               (u.FirstName.ToLower().Contains(searchTerm) || 
-                                u.LastName.ToLower().Contains(searchTerm) || 
-                                u.Email.ToLower().Contains(searchTerm) ||
-                                (u.FirstName + " " + u.LastName).ToLower().Contains(searchTerm) ||
-                                (u.PhoneNumber != null && u.PhoneNumber.Contains(searchText)) ||
-                                (u.UserName != null && u.UserName.ToLower().Contains(searchTerm))))
+                               ((u.FirstName ?? string.Empty).ToLower().Contains(searchTerm) || 
+                                (u.LastName ?? string.Empty).ToLower().Contains(searchTerm) || 
+                                (u.Email ?? string.Empty).ToLower().Contains(searchTerm) ||
+                                (((u.FirstName ?? string.Empty) + " " + (u.LastName ?? string.Empty)).ToLower().Contains(searchTerm)) ||
+                                (!string.IsNullOrEmpty(u.PhoneNumber) && u.PhoneNumber.Contains(searchText)) ||
+                                (!string.IsNullOrEmpty(u.UserName) && u.UserName.ToLower().Contains(searchTerm))))
                     .Select(u => new
                     {
                         id = u.UserId, // Use UserId (integer) instead of Id (UUID)
@@ -71,10 +71,10 @@ namespace MyDrReferral.Api.Controllers
                         isActive = u.IsActive,
                         createdOn = u.CreatedOn,
                         // Add display name for easier frontend handling
-                        displayName = u.FirstName + " " + u.LastName,
+                        displayName = (u.FirstName ?? string.Empty) + " " + (u.LastName ?? string.Empty),
                         referralAmount = u.ReferralAmount ?? 0,
                         // Add searchable text for frontend filtering
-                        searchText = (u.FirstName + " " + u.LastName + " " + u.Email + " " + (u.PhoneNumber ?? "")).ToLower()
+                        searchText = ((u.FirstName ?? string.Empty) + " " + (u.LastName ?? string.Empty) + " " + (u.Email ?? string.Empty) + " " + (u.PhoneNumber ?? string.Empty)).ToLower()
                     })
                     .Take(20) // Increased limit for better search results
                     .ToListAsync();

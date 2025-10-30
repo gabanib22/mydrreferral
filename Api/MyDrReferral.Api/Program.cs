@@ -170,7 +170,7 @@ builder.Services.AddCors(options =>
 
 #region Email Settings for Send Forgot/Reset Password Link to User
 var emailConfig = builder.Configuration.GetSection("EmailConfiguration").Get<EmailSettings>();
-builder.Services.AddSingleton(emailConfig);
+builder.Services.AddSingleton<EmailSettings>(emailConfig ?? new EmailSettings());
 
 
 //Valid token for 30 Minutes
@@ -268,10 +268,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
-// Minimal endpoints for healthcheck test to avoid any controller routing issues
-app.MapGet("/api/healthcheck/test2", () => Results.Ok("Test2 OK"))
-   .AllowAnonymous();
 
 app.MapGet("/api/healthcheck/info", () =>
 {
