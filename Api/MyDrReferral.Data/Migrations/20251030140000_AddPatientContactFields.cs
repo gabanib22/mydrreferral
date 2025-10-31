@@ -5,8 +5,10 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace MyDrReferral.Data.Migrations
 {
+    /// <inheritdoc />
     public partial class AddPatientContactFields : Migration
     {
+        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<string>(
@@ -28,6 +30,7 @@ namespace MyDrReferral.Data.Migrations
                 nullable: true);
         }
 
+        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
@@ -44,3 +47,4 @@ namespace MyDrReferral.Data.Migrations
         }
     }
 }
+
