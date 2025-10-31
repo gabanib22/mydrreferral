@@ -122,21 +122,15 @@ const NewReferral: React.FC<NewReferralProps> = ({ close }) => {
         setError('');
       setSuccess('');
 
-      // Build enriched notes with optional patient details (no DB changes needed)
-      const optionalLines = [
-        formData.patient_phone ? `Patient Phone: ${formData.patient_phone}` : '',
-        formData.patient_email ? `Patient Email: ${formData.patient_email}` : '',
-        formData.patient_address ? `Patient Address: ${formData.patient_address}` : '',
-      ].filter(Boolean);
-      const mergedNotes = [formData.notes?.trim() || '', ...optionalLines]
-        .filter(Boolean)
-        .join('\n');
-
       // Convert to API format (snake_case to match JsonPropertyName attributes)
+      // Send patient details as separate fields, not in notes
       const apiPayload = {
         connection_id: formData.connection_id,
         patient_name: formData.patient_name,
-        notes: mergedNotes,
+        patient_phone: formData.patient_phone || undefined, // Optional field
+        patient_email: formData.patient_email || undefined, // Optional field
+        patient_address: formData.patient_address || undefined, // Optional field
+        notes: formData.notes?.trim() || '', // Only user-entered notes
         rfl_amount: Math.round(formData.rfl_amount), // Convert to integer
         status: 1 // Set default status (1 = Sent)
       };

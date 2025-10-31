@@ -68,9 +68,9 @@ const SentReferrals: React.FC = () => {
         const referralsData = response.data.map((item: any, index: number) => ({
           id: item.patient_id || `sent-ref-${index}`,
           patientName: item.patient_name || 'Unknown Patient',
-          patientPhone: '', // Patient phone not available in current structure
-          patientEmail: '', // Patient email not available in current structure
-          patientAddress: '', // Patient address not available in current structure
+          patientPhone: item.patient_phone || item.PatientPhone || '',
+          patientEmail: item.patient_email || item.PatientEmail || '',
+          patientAddress: item.patient_address || item.PatientAddress || '',
           receivingDoctor: item.doctor_name || 'Unknown Doctor',
           receivingDoctorPhone: item.doctor_phone || '',
           receivingDoctorEmail: item.doctor_email || '',
@@ -157,18 +157,24 @@ const SentReferrals: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div className="space-y-2">
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <Phone className="w-4 h-4" />
-            <span>{referral.patientPhone}</span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <Mail className="w-4 h-4" />
-            <span>{referral.patientEmail}</span>
-          </div>
-          <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <MapPin className="w-4 h-4" />
-            <span>{referral.patientAddress}</span>
-          </div>
+          {referral.patientPhone && (
+            <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <Phone className="w-4 h-4" />
+              <span>{referral.patientPhone}</span>
+            </div>
+          )}
+          {referral.patientEmail && (
+            <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <Mail className="w-4 h-4" />
+              <span>{referral.patientEmail}</span>
+            </div>
+          )}
+          {referral.patientAddress && (
+            <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <MapPin className="w-4 h-4" />
+              <span>{referral.patientAddress}</span>
+            </div>
+          )}
         </div>
         <div className="space-y-2">
           <div className="flex items-center space-x-2 text-sm text-gray-600">
